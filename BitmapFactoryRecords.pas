@@ -1,8 +1,11 @@
 //
-// Created by Matthew Abbott 22/4/2023
+// Created by Matthew Abbott 23/4/2023
 //
 
-program BitmapTool;
+{$mode objfpc}
+{$M+}
+
+program BitmapToolFactory;
 
 uses
    math, sysutils;
@@ -16,33 +19,118 @@ type
     R: Byte;
   end;
 
-
-  TColourTable = array[0..255] of TPixel;
-  bmpArray = array of array of TPixel;
-  PPixel = ^TPixel; // pointer to a pixel
-  PArray = ^bmpArray; // pointer to entire bmp array
+  { GPixels are pixel calculations that have yet to be clamped so may fall outside of the 256 limit of a byte }
   GPixel = record
     B: integer;
     G: integer;
     R: integer;
   end;
 
-var
-  input, output: string;
-  scale: real;
-  inBmp, outBmp: array of array of TPixel; // global inBmp and outBmp bitmap arrays
-  inW, inH, outW, outH, i, j: integer;
-  outPixel: TPixel;
+  TColourTable = array[0..255] of TPixel;
+  bmpArray = array of array of TPixel;
+  PPixel = ^TPixel; // pointer to a pixel
+  PArray = ^bmpArray; // pointer to entire bmp array
+
+  { Base Class for Bitmap Tools to inherit from or Product}
+  BitmapTool = class
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; virtual; abstract;
+  end;
+
+  { Box Blur Concrete Product }
+  BitmapBoxBlur = class(BitmapTool)
+    private 
+      function ApplyBoxBlur(x, y: integer; Bitmap: bmpArray): TPixel;
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Rotate Concrete Product }
+  BitmapRotate = class(BitmapTool)
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Scale Concrete Product }
+  BitmapScale = class(BitmapTool)
+    private
+      function clamp(x, a, b: byte): byte;
+      function DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+      function UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+      function DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+      function UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Sharpen Concrete Product }
+  BitmapSharpen = class(BitmapTool)
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Quantize Concrete Product }
+  BitmapQuantize = class(BitmapTool)
+    private
+      function Distance(Colour1, Colour2: TPixel): integer;
+      function FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; NumColours: integer): TPixel;
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Dither Concrete Product }
+  BitmapDither = class(BitmapTool)
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+  { Edge Dection Concrete Product }
+  BitmapEdgeDetect = class(BitmapTool)
+    private
+      function detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
+    public
+      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
+  end;
+
+
+  { Factory for creating Bitmap Tool Products }
+  BitmapFactory = class
+    public
+      function createProduct(productType: string): BitmapTool;
+      function LoadBitmap(filename: string): bmpArray;
+      procedure SaveBitmap(filename: string; bmp: bmpArray);
+  end;
+
+{ Factory Product creation function }
+function BitmapFactory.createProduct(productType: string): BitmapTool;
+begin
+  if productType = 'BoxBlur' then
+    result := BitmapBoxBlur.Create()
+  else if productType = 'Rotate' then
+    result := BitmapRotate.Create()
+  else if productType = 'Scale' then
+    result := BitmapRotate.Create()
+  else if productType = 'Sharpen' then
+    result := BitmapSharpen.Create()
+  else if productType = 'Quantize' then
+    result := BitmapQuantize.Create()
+  else if productType = 'Dither' then
+    result := BitmapDither.Create()
+  else if productType = 'EdgeDetect' then
+    result := BitmapEdgeDetect.Create()
+  else
+    result := nil;
+end;
 
 { Load bitmap into a two dimensional array }
-function LoadBitmap(filename: string; bmp: bmpArray; var w, h: integer): bmpArray;
+function BitmapFactory.LoadBitmap(filename: string): bmpArray;
 var
   inFile: file;
-  step: array of byte;
   header: array[0..53] of byte;
   pixelSize, start: integer;
   rowSize, paddingSize, stepSize: integer;
-  i, j: integer;
+  i, j, w ,h: integer;
+  bmp: bmpArray;
 begin
   Assign(inFile, filename);
   Reset(inFile, 1);
@@ -63,7 +151,7 @@ begin
   paddingSize := rowSize - w * pixelSize;
 
   { Move to image data starting address }
-  Seek(inFile, start); 
+  Seek(inFile, start);
 
   { Allocate memory for bitmap }
   SetLength(bmp, h, w);
@@ -82,28 +170,18 @@ begin
   end;
 
   Close(inFile);
-  LoadBitmap := bmp;
-end;
-
-{ Locks a byte to an upper and lower limit. }
-function clamp(x, a, b: byte): byte;
-begin
-  if x < a then
-    clamp := a
-  else if x > b then
-    clamp := b
-  else
-    clamp := x;
+  result := bmp;
 end;
 
 { Saves Bitmap to file }
-procedure SaveBitmap(filename: string; bmp: bmpArray);
+procedure BitmapFactory.SaveBitmap(filename: string; bmp: bmpArray);
 var
   outFile: file;
   header: array[0..53] of byte;
   pixelSize: integer;
   rowSize, paddingSize: integer;
   i, j: integer;
+  outPixel: TPixel;
 begin
   Assign(outFile, filename);
   Rewrite(outFile, 1);
@@ -144,13 +222,38 @@ begin
   Close(outFile);
 end;
 
+{ Apply a Box Blur to a bitmap }
+function BitmapBoxBlur.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+var
+  x, y, inH, inW: Integer;
+  BlurredBitmap: bmpArray;
+begin
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+  BlurredBitmap := inBmp;
+
+  { Loop through pixels in bitmap }
+  for y := 0 to inH -1 do
+  begin
+    for x := 0 to inW -1 do
+    begin
+
+      { Apply blur to pixel in output bitmap }
+      BlurredBitmap[y][x] := ApplyBoxBlur(x, y, inBmp);
+    end;
+  end;
+
+  result := BlurredBitmap;
+end;
 
 { Apply a Box Blur to kernel }
-function ApplyBoxBlur(x, y: Integer; var Bitmap: bmpArray): TPixel;
+function BitMapBoxBlur.ApplyBoxBlur(x, y: integer; Bitmap: bmpArray): TPixel;
 var
   i, j, count: Integer;
-  sumR, sumG, sumB: Integer;
+  sumR, sumG, sumB, inH, inW: Integer;
 begin
+  inH := length(Bitmap);
+  inW := length(Bitmap[high(Bitmap)]);
   sumR := 0;
   sumG := 0;
   sumB := 0;
@@ -165,8 +268,8 @@ begin
       { Check if pixel is within bitmap bounds }
       if (i >= 1) and (i <= inH -1) and (j >= 1) and (j <= inW -1) then
       begin
-	
-	{ Increase RGB values by increment across the kernel }
+
+        { Increase RGB values by increment across the kernel }
         sumR := sumR + Bitmap[i][j].R;
         sumG := sumG + Bitmap[i][j].G;
         sumB := sumB + Bitmap[i][j].B;
@@ -176,40 +279,26 @@ begin
   end;
 
   { Calculate average RGB value of kernel area and return pixel}
-  ApplyBoxBlur.R := Round(sumR / count);
-  ApplyBoxBlur.G := Round(sumG / count);
-  ApplyBoxBlur.B := Round(sumB / count);
+  result.R := Round(sumR / count);
+  result.G := Round(sumG / count);
+  result.B := Round(sumB / count);
 end;
 
-{ Apply Box Blur to entire bitmap }
-function BoxBlurBitmap(var inBmp: bmpArray): bmpArray;
+{ Rotate a bitmap }
+function BitmapRotate.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
 var
-  x, y: Integer;
-  BlurredBitmap: bmpArray;
+x, y, i, j, xx, yy, inH, inW: integer;
+cx, cy, sina, cosa, scale, angle: real;
+w2, h2, outW, outH: integer;
+outBmp: bmpArray;
 begin
-  BlurredBitmap := inBmp;
 
-  { Loop through pixels in bitmap }
-  for y := 0 to inH -1 do
-  begin
-    for x := 0 to inW -1 do
-    begin
-      
-      { Apply blur to pixel in output bitmap }
-      BlurredBitmap[y][x] := ApplyBoxBlur(x, y, inBmp);
-    end;
-  end;
+  { Assign angle to input argument }
+  angle := inputVariableReal;
 
-  BoxBlurBitmap := BlurredBitmap;
-end;
-
-{ Rotate bitmap }
-function RotateBitmap(const inBmp: bmpArray; inW, inH: integer; angle: real): bmpArray;
-var
-x, y, i, j, xx, yy: integer;
-cx, cy, sina, cosa: real;
-w2, h2: integer;
-begin
+  { Find dimensions of bitmap }
+  inH := length(inBmp);
+  inW := length(inBmp[length(inBmp)]);
 
   { Find bitmaps centre }
   cx := inW / 2;
@@ -242,16 +331,48 @@ begin
     end;
   end;
 
-  RotateBitmap := outBmp;
+  result := outBmp;
 end;
 
-{ Scale pixel down }
-function DownScalePixel(var x, y: integer; var scale: real; var inBmp: bmpArray; var inW, inH: integer): TPixel;
+{ Scale a bitmap }
+function BitmapScale.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+var
+  scale: real;
+  inW, inH, outW, outH: integer;
+  outBmp: bmpArray;
+
+begin
+  scale := inputVariableReal;
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+  outW := Round(inW * scale);
+  outH := Round(inH * scale);
+  if scale <= 1 then
+    outBmp := DownScaleBitmap(inBmp, inW, inH, outW, outH, scale)
+  else
+    outBmp := UpscaleBitmap(inBmp, inW, inH, outW, outH, scale);
+  result := outBmp; 
+end;
+
+{ Locks a byte to an upper and lower limit. }
+function BitmapScale.clamp(x, a, b: byte): byte;
+begin
+  if x < a then
+    result := a
+  else if x > b then
+    result := b
+  else
+    result := x;
+end;
+
+{ Scale a pixel down }
+function BitmapScale.DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
 var
   i, j: integer;
   dx, dy: real;
   r, g, b: integer;
   a: real;
+  outPixel: TPixel;
 begin
 
   { Assign real values to x and y co ordinates }
@@ -278,15 +399,16 @@ begin
   outPixel.B := Clamp(Round(b), 0, 255);
 
   { Return scaled pixel }
-  DownScalePixel := outPixel;
+  result := outPixel;
 end;
 
-{ Scale Pixel up }
-function UpScalePixel(var x, y: integer; var scale: real; var inBmp: bmpArray; var inW, inH: integer): TPixel;
+{ Scale a pixel up }
+function BitmapScale.UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
 var
   dx, dy: real;
-  r, g, b: integer;
+  r, g, b, i, j: integer;
   a: real;
+  outPixel: TPixel;
 begin
 
   { Divide x and y co ordinates by scale and save to a real }
@@ -318,14 +440,15 @@ begin
   outPixel.B := Clamp(Round(b), 0, 255);
 
   { Return scaled pixel }
-  UpScalePixel := outPixel;
+  result := outPixel;
 end;
 
 { Scale bitmap down }
-function DownScaleBitmap(inBmp: bmpArray; var inW, inH, outW, outH: integer; var scale: real): bmpArray;
+function BitmapScale.DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
 var
   i, j, x, y: integer;
   outPixel: TPixel;
+  outBmp: bmpArray;
 begin
 
   { Allocate memory for scaled bitmap }
@@ -340,7 +463,7 @@ begin
       { Scale and save pixel to output bitmap }
       x := trunc(j / scale);
       y := trunc(i / scale);
-      outPixel :=  DownScalePixel(x, y, scale, inBmp, inW, inH);
+      outPixel :=  DownScalePixel(x, y, inW, inH, scale, inBmp);
       outBmp[i][j] := outPixel;
     end;
   end;
@@ -348,10 +471,11 @@ begin
 end;
 
 { Scale bitmap up }
-function UpScaleBitmap(inBmp: bmpArray; var inW, inH, outW, outH: integer; var scale: real): bmpArray;
+function BitmapScale.UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
 var
   r, i, j, x, y: integer;
   inPixel, outPixel: TPixel;
+  outBmp: bmpArray;
 begin
 
   { Allocate memory for scaled bitmap }
@@ -364,10 +488,10 @@ begin
      for j := 0 to inW - 1 do
      begin
 
-	{ Scale and save pixel to output bitmap }
+        { Scale and save pixel to output bitmap }
         x := round(j * scale);
         y := i; //round(i * scale);
-        outPixel :=  UpScalePixel(x, y, scale, inBmp, inW, inH);
+        outPixel :=  UpScalePixel(x, y, inW, inH, scale, inBmp);
         if r < outW then
         begin
            while r < x do
@@ -382,7 +506,7 @@ begin
 end;
 
 { Sharpen bitmap }
-function SharpenBitmap(inBmp: bmpArray; inW, inH: integer): bmpArray;
+function BitmapSharpen.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
 const
 
   { Kernel for applying sharpen on bitmap }
@@ -393,10 +517,17 @@ const
   );
 var
   I, J, K, L: Integer;
-  sumR, sumG, sumB: Integer;
+  sumR, sumG, sumB, inH, inW: Integer;
+  outBmp: bmpArray;
+
 begin
+  
+  { Find Bitmaps dimensions }
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+
   { Allocate memory for out bitmap }
-  SetLength(outBmp, inH, inW);
+  setLength(outBmp, inH, inW);
 
   { Loop through pixels in bitmap }
   for I := 1 to inH-2 do
@@ -410,13 +541,13 @@ begin
       for K := -1 to 1 do
       begin
         for L := -1 to 1 do
-	begin
+        begin
 
           { Apply sharpen to red green and blue colour channels in pixel }
           sumR := sumR + inBmp[I+K, J+L].R * Kernel[K, L];
-	  sumG := sumG + inBmp[I+K, J+L].G * Kernel[K, L];
-	  sumB := sumB + inBmp[I+K, J+L].B * Kernel[K, L]; 
-	end;
+          sumG := sumG + inBmp[I+K, J+L].G * Kernel[K, L];
+          sumB := sumB + inBmp[I+K, J+L].B * Kernel[K, L];
+        end;
       end;
 
       { Ensure pixel's red green and blue channels are within range }
@@ -424,18 +555,61 @@ begin
       outBmp[I, J].G := EnsureRange(sumG div 1, 0, 255);
       outBmp[I, J].B := EnsureRange(SumB div 1, 0, 255);
     end;
-  
-  SharpenBitmap := outBmp;
+
+  result := outBmp;
 end;
 
+// this function needs the colourtables matched to colour bit ratios,
+{ Quantize a bitmap to a set number of colours }
+function BitmapQuantize.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
+var
+  i, j, inW, inH, NumColours: integer;
+  ColourTable: TColourTable;
+  NearestColour: TPixel;
+  outBmp: bmpArray;
+
+begin
+    NumColours := inputVariableInt;
+
+    { Find dimensions of bitmap }
+    inH := length(inBmp);
+    inW := length(inBmp[high(inBmp)]);
+
+    { Allocate Memory for output bitmap }
+    setLength(outBmp, inH, inW);
+
+    { Set ColourTable }
+    for i := 1 to NumColours do
+    begin
+      ColourTable[i-1].R := trunc(256 / i); // random(256);
+      ColourTable[i-1].G := trunc(256 / (NumColours - i + 1)); // random(256);
+      ColourTable[i-1].B := trunc(256 / i); // random(256);
+    end;
+
+    { Loop through pixels in bitmap }
+    for i := 0 to inH -1 do
+    begin
+      for j := 0 to inW -1 do
+      begin
+
+        { Find nearest colour in colour table to pixel then write to output bitmap }
+        NearestColour := FindNearestColour(inBmp[i][j], ColourTable, NumColours);
+        outBmp[i][j] := NearestColour;
+      end;
+    end;
+    result := outBmp;
+end;
+
+
 { Calculate distance between two pixels }
-function Distance(Colour1, Colour2: TPixel): integer;
+function BitmapQuantize.Distance(Colour1, Colour2: TPixel): integer;
 begin
   Distance := Sqr(Colour1.R - Colour2.R) + Sqr(Colour1.G - Colour2.G) + Sqr(Colour1.B - Colour2.B);
 end;
 
 { Find the nearest colour to a pixel from a colour table }
-function FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; NumColours: integer): TPixel;
+function BitmapQuantize.FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; NumColours: integer): TPixel;
 var
   i, BestIndex, BestDistance: integer;
   DistanceToTarget: integer;
@@ -457,54 +631,23 @@ begin
   end;
 
   { Return the closest colour in colour table to pixel }
-  FindNearestColour := ColourTable[BestIndex];
-end;
-
-// this function needs the colourtables matched to colour bit ratios, 
-{ Quantize a bitmap to a set number of colours }
-function QuantizeBitmap(inBmp: bmpArray; var inW, inH, NumColours: integer): bmpArray;
-
-var
-  i, j: integer;
-  ColourTable: TColourTable;
-  NearestColour: TPixel;
-  outBmp: bmpArray;
-
-begin
-    { Allocate Memory for output bitmap }
-    setLength(outBmp, inH, inW);	
-
-    { Set ColourTable }
-    for i := 1 to NumColours do
-    begin
-      ColourTable[i-1].R := trunc(256 / i); // random(256);
-      ColourTable[i-1].G := trunc(256 / (NumColours - i + 1)); // random(256);
-      ColourTable[i-1].B := trunc(256 / i); // random(256);
-    end;
-    
-    { Loop through pixels in bitmap }
-    for i := 0 to inH -1 do
-    begin
-      for j := 0 to inW -1 do
-      begin
-	
-	{ Find nearest colour in colour table to pixel then write to output bitmap }
-        NearestColour := FindNearestColour(inBmp[i][j], ColourTable, NumColours);
-	outBmp[i][j] := NearestColour;
-      end;
-    end;
-    QuantizeBitmap := outBmp;
+  result := ColourTable[BestIndex];
 end;
 
 // I think the ability to round to a decimal place might make this more useful.
 { Dither bitmap }
-function DitherBitmap(inBmp: bmpArray; var inW, inH: integer): bmpArray;
+function BitmapDither.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 
 var
   OldPixel, NewPixel, Error: TPixel;
   outBmp: bmpArray;
-  x, y: integer;
+  x, y, inH, inW: integer;
 begin
+
+  { Find bitmap dimensions }
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
 
   { Allocate memory to output bitmap }
   setLength(outBmp, inH, inW);
@@ -549,7 +692,7 @@ begin
         inBmp[y + 1, x].R := inBmp[y + 1, x].R + Error.R * 5 div 16;
         inBmp[y + 1, x].G := inBmp[y + 1, x].G + Error.G * 5 div 16;
         inBmp[y + 1, x].B := inBmp[y + 1, x].B + Error.B * 5 div 16;
-      end;
+        end;
       if (x < inW - 1) and (y < inH - 1) then
       begin
         inBmp[y + 1, x + 1].R := inBmp[y + 1, x + 1].R + Error.R div 16;
@@ -558,15 +701,32 @@ begin
       end;
     end;
   end;
-  DitherBitmap := outBmp;
+  result := outBmp;
 end;
 
 { Detect edges in bitmap based on colour gradient difference using a threshold }
-function EdgeDetectBitmap(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
+function BitmapEdgeDetect.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+var
+  Threshold: TPixel;
+  inH, inW: integer;
+  outBmp : bmpArray;
+begin
+  Threshold.R := inputVariableInt;
+  Threshold.G := inputVariableInt;
+  Threshold.B := inputVariableInt;
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+  outBmp := detect(inBmp, Threshold, inH, inW);
+  result := outBmp
+end;
+
+{ Calculate Edge Detection }
+function BitmapEdgeDetect.detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
 var
   X, Y, temp: Integer;
   GX, GY: TPixel; // Gradients in X and Y directions
   Gradient: GPixel; // Magnitude of gradient
+  outBmp: bmpArray;
 begin
 
   { Allocate memory for ouput bitmap }
@@ -613,149 +773,96 @@ begin
         outBmp[y,x].B := 0;
 
     end;
-    EdgeDetectBitmap := outBmp;
+    result := outBmp;
 end;
 
+{ Begining of main function }
 
 var
+  BitmapFactoryVar: BitmapFactory;
+  BitmapToolVar: BitmapTool;
   PixArray: bmpArray;
-  arg: string;
-  angle: float;
-  x, y, numColours: integer;
-  Threshold: TPixel;
+  arg, input, output: string;
+  outBmp: bmpArray;
 
 begin
   if ParamCount < 3 then
   begin
-    Writeln('Usage: BitmapScaling input.bmp output.bmp scale');
+    Writeln('Usage: BitmapScaling input.bmp output.bmp optional argument');
     Halt;
   end;
   arg := ParamStr(1);
   input := ParamStr(2);
   output := ParamStr(3);
 
-  { Scale bitmap }
-  if arg = '-s' then
+  { Scale }
+  if (arg = '-s') or (arg = '--scale') then
   begin
-    scale := StrToFloat(ParamStr(4));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outW := Round(inW * scale);
-    outH := Round(inH * scale);
-    if StrToFloat(ParamStr(4)) <= 1 then
-      outBmp := DownScaleBitmap(PixArray, inW, inH, outW, outH, scale)
-    else
-      outBmp := UpScaleBitmap(PixArray, inW, inH, outW, outH, scale);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--scale' then
-  begin
-    scale := StrToFloat(ParamStr(4));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outW := Round(inW * scale);
-    outH := Round(inH * scale);
-    if StrToFloat(ParamStr(4)) <= 1 then
-      outBmp := DownScaleBitmap(PixArray, inW, inH, outW, outH, scale)
-    else
-      outBmp := UpScaleBitmap(PixArray, inW, inH, outW, outH, scale);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Scale');
+    outBmp := BitmapToolVar.use(0,StrToFloat(ParamStr(4)),PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Rotate bitmap }
-  if arg = '-r' then
+  { Rotate }
+  if (arg = '-r') or (arg = '--rotate') then
   begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    angle := StrtoFloat(ParamStr(4));
-    outBmp := RotateBitmap(PixArray, inW, inH, angle);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--rotate' then
-  begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    angle := StrtoFloat(ParamStr(4));
-    outBmp := RotateBitmap(PixArray, inW, inH, angle);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Rotate');
+    outBmp := BitmapToolVar.use(0,StrToFloat(ParamStr(4)),PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Blur bitmap }
-  if arg = '-b' then
+  { Blur }
+  if (arg = '-b') or (arg = '--blur') then
   begin
-    // initialize bitmap
-    Randomize;
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := BoxBlurBitmap(PixArray);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--blur' then
-  begin
-    // initialize bitmap
-    Randomize;
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := BoxBlurBitmap(PixArray);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Blur');
+    outBmp := BitmapToolVar.use(0,0,PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Sharpen bitmap }
-  if arg = '-#' then
+  { Sharpen }
+  if (arg = '-#') or (arg = '--sharpen') then
   begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp :=  SharpenBitmap(PixArray, inW, inH);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--sharpen' then
-  begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp :=  SharpenBitmap(PixArray, inW, inH);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Sharpen');
+    outBmp := BitmapToolVar.use(0,0,PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Quantize bitmap }
-  if arg = '-q' then
+  { Quantize }
+  if (arg = '-q') or (arg = '--quantize') then
   begin
-    numColours := StrToInt(ParamStr(4));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := QuantizeBitmap(PixArray, inW, inH, NumColours);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--quantize' then
-  begin
-    numColours := StrToInt(ParamStr(4));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := QuantizeBitmap(PixArray, inW, inH, NumColours);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Quantize');
+    outBmp := BitmapToolVar.use(StrToInt(ParamStr(4)),0,PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Dither bitmap }
-  if arg = '-d' then
+  { Dither }
+  if (arg = '-d') or (arg = '--dither') then
   begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := DitherBitmap(PixArray, inW, inH);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--dither' then
-  begin
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := DitherBitmap(PixArray, inW, inH);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Dither');
+    outBmp := BitmapToolVar.use(0,0,PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 
-  { Edge Detect bitmap }
-  if arg = '-e' then
+  { Edge }
+  if (arg = '-e') or (arg = '--edge') then
   begin
-
-    Threshold.R := StrToInt(ParamStr(4));
-    Threshold.G := StrToInt(ParamStr(5));
-    Threshold.B := StrToInt(ParamStr(6));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := EdgeDetectBitmap(PixArray, Threshold, inH, inW);
-    SaveBitmap(output, outBmp);
-  end;
-  if arg = '--edge' then
-  begin
-    Threshold.R := StrToInt(ParamStr(4));
-    Threshold.G := StrToInt(ParamStr(5));
-    Threshold.B := StrToInt(ParamStr(6));
-    PixArray := LoadBitmap(input, inBmp, inW, inH);
-    outBmp := EdgeDetectBitmap(PixArray, Threshold, inH, inW);
-    SaveBitmap(output, outBmp);
+    BitmapFactoryVar := BitmapFactory.Create();
+    PixArray := BitmapFactoryVar.LoadBitmap(input);
+    BitmapToolVar := BitmapFactoryVar.createProduct('Edge');
+    outBmp := BitmapToolVar.use(StrToInt(ParamStr(4)),0,PixArray);
+    BitmapFactoryVar.SaveBitmap(output, outBmp);
   end;
 end.
+
