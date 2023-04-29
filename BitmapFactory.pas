@@ -385,9 +385,9 @@ begin
       begin
 
         { Increase RGB values by increment across the kernel }
-        sumR := sumR + Bitmap[i][j].R;
-        sumG := sumG + Bitmap[i][j].G;
-        sumB := sumB + Bitmap[i][j].B;
+        sumR := sumR + Bitmap[i][j].getRedInt;
+        sumG := sumG + Bitmap[i][j].getGreenInt;
+        sumB := sumB + Bitmap[i][j].getBlueInt;
         Inc(count);
       end;
     end;
@@ -506,9 +506,9 @@ begin
   a := dx - j;
 
   { Scale pixel }
-  r := Round((1 - a) * inBmp[i][j].R + a * inBmp[i][j + 1].R);
-  g := Round((1 - a) * inBmp[i][j].G + a * inBmp[i][j + 1].G);
-  b := Round((1 - a) * inBmp[i][j].B + a * inBmp[i][j + 1].B);
+  r := Round((1 - a) * inBmp[i][j].getRedInt + a * inBmp[i][j + 1].getRedInt);
+  g := Round((1 - a) * inBmp[i][j].getGreenInt + a * inBmp[i][j + 1].getGreenInt);
+  b := Round((1 - a) * inBmp[i][j].getBlueInt + a * inBmp[i][j + 1].getBlueInt);
 
   { Clamp pixel red green and blue channels }
   outPixel.setBlue(Clamp(Round(b), 0, 255));
@@ -545,9 +545,9 @@ begin
     if j < high(inBmp[high(inBmp)]) then
     begin
       { Scale pixel }
-      r := Round((1 - a) * inBmp[i][j].R + a * inBmp[i][j + 1].R);
-      g := Round((1 - a) * inBmp[i][j].G + a * inBmp[i][j + 1].G);
-      b := Round((1 - a) * inBmp[i][j].B + a * inBmp[i][j + 1].B);
+      r := Round((1 - a) * inBmp[i][j].getRedInt + a * inBmp[i][j + 1].getRedInt);
+      g := Round((1 - a) * inBmp[i][j].getGreenInt + a * inBmp[i][j + 1].getGreenInt);
+      b := Round((1 - a) * inBmp[i][j].getBlueInt + a * inBmp[i][j + 1].getBlueInt);
     end;
   end;
 
@@ -699,9 +699,9 @@ begin
     { Set ColourTable }
     for i := 1 to NumColours do
     begin
-      ColourTable[i-1].setBlue(trunc(256 / i); // random(256));
-      ColourTable[i-1].setGreen(trunc(256 / (NumColours - i + 1)); // random(256));
-      ColourTable[i-1].setRed(trunc(256 / i); // random(256));
+      ColourTable[i-1].setBlue(trunc(256 / i)); // random(256));
+      ColourTable[i-1].setGreen(trunc(256 / (NumColours - i + 1))); // random(256));
+      ColourTable[i-1].setRed(trunc(256 / i)); // random(256));
     end;
 
     { Loop through pixels in bitmap }
@@ -855,39 +855,39 @@ begin
     begin
 
       { Calculate gradients in X and Y directions using Sobel operator }
-      GX.R := (inBmp[y-1,x-1].R + 2*inBmp[y-1,x].R + inBmp[y-1,x+1].R) -
-        (inBmp[y+1,x-1].R + 2*inBmp[y+1,x].R + inBmp[y+1,x+1].R);
-      GX.G := (inBmp[y-1,x-1].G + 2*inBmp[y-1,x].G + inBmp[y-1,x+1].G) -
-        (inBmp[y+1,x-1].G + 2*inBmp[y+1,x].G + inBmp[y+1,x+1].G);
-      GX.B := (inBmp[y-1,x-1].B + 2*inBmp[y-1,x].B + inBmp[y-1,x+1].B) -
-            (inBmp[y+1,x-1].B + 2*inBmp[y+1,x].B + inBmp[y+1,x+1].B);
+      GX.setRed( (inBmp[y-1,x-1].getRedInt + 2*inBmp[y-1,x].getRedInt + inBmp[y-1,x+1].getRedInt) -
+        (inBmp[y+1,x-1].getRedInt + 2*inBmp[y+1,x].getRedInt + inBmp[y+1,x+1].getRedInt));
+      GX.setGreen( (inBmp[y-1,x-1].getGreenInt + 2*inBmp[y-1,x].getGreenInt + inBmp[y-1,x+1].getGreenInt) -
+        (inBmp[y+1,x-1].getGreenInt + 2*inBmp[y+1,x].getGreenInt + inBmp[y+1,x+1].getGreenInt));
+      GX.setBlue( (inBmp[y-1,x-1].getBlueInt + 2*inBmp[y-1,x].getBlueInt + inBmp[y-1,x+1].getBlueInt) -
+            (inBmp[y+1,x-1].getBlueInt + 2*inBmp[y+1,x].getBlueInt + inBmp[y+1,x+1].getBlueInt));
 
 
-      GY.R := (inBmp[y-1,x-1].R + 2*inBmp[y,x-1].R + inBmp[y+1,x-1].R) -
-            (inBmp[y-1,x+1].R + 2*inBmp[y,x+1].R + inBmp[y+1,x+1].R);
-      GY.G := (inBmp[y-1,x-1].G + 2*inBmp[y,x-1].G + inBmp[y+1,x-1].G) -
-            (inBmp[y-1,x+1].G + 2*inBmp[y,x+1].G + inBmp[y+1,x+1].G);
-      GY.B := (inBmp[y-1,x-1].B + 2*inBmp[y,x-1].B + inBmp[y+1,x-1].B) -
-            (inBmp[y-1,x+1].B + 2*inBmp[y,x+1].B + inBmp[y+1,x+1].B);
+      GY.setRed( (inBmp[y-1,x-1].getRedInt + 2*inBmp[y,x-1].getRedInt + inBmp[y+1,x-1].getRedInt) -
+            (inBmp[y-1,x+1].getRedInt + 2*inBmp[y,x+1].getRedInt + inBmp[y+1,x+1].getRedInt));
+      GY.setGreen( (inBmp[y-1,x-1].getGreenInt + 2*inBmp[y,x-1].getGreenInt+ inBmp[y+1,x-1].getGreenInt) -
+            (inBmp[y-1,x+1].getGreenInt + 2*inBmp[y,x+1].getGreenInt + inBmp[y+1,x+1].getGreenInt));
+      GY.setBlue((inBmp[y-1,x-1].getBlueInt + 2*inBmp[y,x-1].getBlueInt + inBmp[y+1,x-1].getBlueInt) -
+            (inBmp[y-1,x+1].getBlueInt + 2*inBmp[y,x+1].getBlueInt + inBmp[y+1,x+1].getBlueInt));
 
       { Calculate magnitude of gradient }
-      Gradient.R := Abs(GX.R) + Abs(GY.R);
-      Gradient.G := Abs(GX.G) + Abs(GY.G);
-      Gradient.B := Abs(GX.B) + Abs(GY.B);
+      Gradient.setRed(Abs(GX.getRedInt) + Abs(GY.getRedInt));
+      Gradient.setGreen(Abs(GX.getGreenInt) + Abs(GY.getGreenInt));
+      Gradient.setRed(Abs(GX.getRedInt) + Abs(GY.getRedInt));
 
       { Threshold gradient and set output pixel }
-      if Gradient.R > Threshold.R then
-        outBmp[y,x].R := 255
+      if Gradient.getRedInt > Threshold.getRedInt then
+        outBmp[y,x].setRed(255)
       else
-        outBmp[y,x].R := 0;
-      if Gradient.G > Threshold.G then
-        outBmp[y,x].G := 255
+        outBmp[y,x].setRed(0);
+      if Gradient.getGreenInt > Threshold.getGreenInt then
+        outBmp[y,x].setGreen(255)
       else
-        outBmp[y,x].G := 0;
-      if Gradient.B > Threshold.B then
-        outBmp[y,x].B := 255
+        outBmp[y,x].setGreen(0);
+      if Gradient.getBlueInt > Threshold.getBlueInt then
+        outBmp[y,x].setBlue(255)
       else
-        outBmp[y,x].B := 0;
+        outBmp[y,x].setBlue(0);
 
     end;
     result := outBmp;
