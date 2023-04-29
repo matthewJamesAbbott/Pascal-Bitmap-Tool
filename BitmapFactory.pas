@@ -122,6 +122,97 @@ type
       procedure SaveBitmap(filename: string; bmp: bmpArray);
   end;
 
+{ Set Pixel Blue }
+procedure TPixel.setBlue(inByte: byte);
+begin
+  B := inByte;
+end;
+
+{ Set Pixel Green }
+procedure TPixel.setGreen(inByte: byte);
+begin
+  G := inByte;
+end;
+
+{ Set Pixel Red }
+procedure TPixel.setRed(inByte: byte);
+begin
+  R := inByte;
+end;
+
+{ Set GPixel Blue }
+procedure GPixel.setBlue(inInteger: integer);
+begin
+  B := inInteger;
+end;
+
+{ Set GPixel Green }
+procedure GPixel.setGreen(inInteger: integer);
+begin
+  G := inInteger;
+end;
+
+{ Set GPixel Red }
+procedure GPixel.setRed(inInteger: integer);
+begin
+  R := inInteger;
+end;
+
+{ Return integer value for Pixel Blue }
+function TPixel.getBlueInt(): integer;
+begin
+  result := integer(B);
+end;
+
+{ Return byte value for Pixel Blue }
+function TPixel.getBlueByte(): byte;
+begin
+  result := B;
+end;
+
+{ Return integer value for Pixel Green }
+function TPixel.getGreenInt(): integer;
+begin
+  result := integer(G);
+end;
+
+{ Return byte value for Pixel Green }
+function TPixel.getGreenByte(): byte;
+begin
+  result := G;
+end;
+
+{ Return integer value for Pixel Red }
+function TPixel.getRedInt(): integer;
+begin
+  result := integer(R);
+end;
+
+{ Return byte value for Pixel Red }
+function TPixel.getRedByte(): byte;
+begin
+  result := R;
+end;
+
+{ Return integer value for GPixel Blue }
+function GPixel.getBlueInt(): integer;
+begin
+  result := B;
+end;
+
+{ Return integer value for GPixel Green }
+function GPixel.getGreenInt(): integer;
+begin
+  result := G;
+end;
+
+{ Return integer value for GPixel Red }
+function GPixel.getRedInt(): integer;
+begin
+  result := R;
+end;
+
+
 { Factory Product creation function }
 function BitmapFactory.createProduct(productType: string): BitmapTool;
 begin
