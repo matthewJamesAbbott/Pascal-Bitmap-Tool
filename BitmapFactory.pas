@@ -554,7 +554,7 @@ begin
   { Clamp pixel red green and blue channels }
   outPixel.setBlue(Clamp(Round(b), 0, 255));
   outPixel.setGreen(Clamp(Round(g), 0, 255));
-  outPixel.setRed(Clamp(Round(b), 0, 255));
+  outPixel.setRed(Clamp(Round(r), 0, 255));
 
   { Return scaled pixel }
   result := outPixel;
