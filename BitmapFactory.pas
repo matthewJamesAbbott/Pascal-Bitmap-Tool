@@ -396,7 +396,7 @@ begin
   { Calculate average RGB value of kernel area and return pixel}
   outPixel.setBlue(Round(sumB / count));
   outPixel.setGreen(Round(sumG / count));
-  outPixel.setRed(Round(sumB / count));
+  outPixel.setRed(Round(sumR / count));
 
   result := outPixel;
 end;
