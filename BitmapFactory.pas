@@ -228,7 +228,7 @@ begin
     result := BitmapQuantize.Create()
   else if productType = 'Dither' then
     result := BitmapDither.Create()
-  else if productType = 'EdgeDetect' then
+  else if productType = 'Edge' then
     result := BitmapEdgeDetect.Create()
   else
     result := nil;
