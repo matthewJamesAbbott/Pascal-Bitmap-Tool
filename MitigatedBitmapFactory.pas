@@ -2,7 +2,7 @@
 // Created by Matthew Abbott 1/5/2023
 // 
 //
-// debug and var declarations still to be done.
+// debug to be done.
 //
 
 {$mode objfpc}
@@ -329,6 +329,7 @@ end;
 
 { Load bitmap into a two dimensional array }
 function BitmapFactory.LoadBitmap(filename: string): bmpArray;
+
 var
   inFile: file;
   header: array[0..53] of byte;
@@ -336,6 +337,7 @@ var
   rowSize, paddingSize, stepSize: integer;
   i, j, w ,h: integer;
   bmp: bmpArray;
+
 begin
   Assign(inFile, filename);
   Reset(inFile, 1);
@@ -373,13 +375,14 @@ begin
       Seek(inFile, FilePos(inFile) + paddingSize);
     end;
   end;
-
   Close(inFile);
+
   result := bmp;
 end;
 
 { Saves Bitmap to file }
 procedure BitmapFactory.SaveBitmap(filename: string; bmp: bmpArray);
+
 var
   outFile: file;
   header: array[0..53] of byte;
@@ -387,6 +390,7 @@ var
   rowSize, paddingSize: integer;
   i, j: integer;
   outPixel: TPixel;
+
 begin
   Assign(outFile, filename);
   Rewrite(outFile, 1);
@@ -431,9 +435,11 @@ end;
 
 { Apply a Box Blur to a bitmap }
 function BitmapBoxBlur.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 var
   x, y, inH, inW: Integer;
   BlurredBitmap: bmpArray;
+
 begin
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
@@ -455,10 +461,12 @@ end;
 
 { Apply a Box Blur to kernel }
 function BitMapBoxBlur.ApplyBoxBlur(x, y: integer; Bitmap: bmpArray): TPixel;
+
 var
   i, j, count: Integer;
   sumR, sumG, sumB, inH, inW: Integer;
   outPixel: TPixel;
+
 begin
   inH := length(Bitmap);
   inW := length(Bitmap[high(Bitmap)]);
@@ -496,11 +504,13 @@ end;
 
 { Rotate a bitmap }
 function BitmapRotate.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 var
 x, y, i, j, xx, yy, inH, inW: integer;
 cx, cy, sina, cosa, scale, angle: real;
 w2, h2, outW, outH: integer;
 outBmp: bmpArray;
+
 begin
 
   { Assign angle to input argument }
@@ -546,6 +556,7 @@ end;
 
 { Scale a bitmap }
 function BitmapScale.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 var
   scale: real;
   inW, inH, outW, outH: integer;
@@ -561,6 +572,7 @@ begin
     outBmp := DownScaleBitmap(inBmp, inW, inH, outW, outH, scale)
   else
     outBmp := UpscaleBitmap(inBmp, inW, inH, outW, outH, scale);
+
   result := outBmp; 
 end;
 
@@ -577,12 +589,14 @@ end;
 
 { Scale a pixel down }
 function BitmapScale.DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+
 var
   i, j: integer;
   dx, dy: real;
   r, g, b: integer;
   a: real;
   outPixel: TPixel;
+
 begin
 
   { Assign real values to x and y co ordinates }
@@ -614,11 +628,13 @@ end;
 
 { Scale a pixel up }
 function BitmapScale.UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+
 var
   dx, dy: real;
   r, g, b, i, j: integer;
   a: real;
   outPixel: TPixel;
+
 begin
 
   { Divide x and y co ordinates by scale and save to a real }
@@ -655,10 +671,12 @@ end;
 
 { Scale bitmap down }
 function BitmapScale.DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+
 var
   i, j, x, y: integer;
   outPixel: TPixel;
   outBmp: bmpArray;
+
 begin
 
   { Allocate memory for scaled bitmap }
@@ -677,7 +695,8 @@ begin
       outBmp[i][j] := outPixel;
     end;
   end;
-  DownScaleBitmap := outBmp;
+
+  result := outBmp;
 end;
 
 { Scale bitmap up }
@@ -712,11 +731,13 @@ begin
         end;
      end;
   end;
-  UpScaleBitmap := outBmp;
+
+  result := outBmp;
 end;
 
 { Sharpen bitmap }
 function BitmapSharpen.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 const
 
   { Kernel for applying sharpen on bitmap }
@@ -725,6 +746,7 @@ const
     (-1, 5, -1),
     (0, -1, 0)
   );
+
 var
   I, J, K, L: Integer;
   sumR, sumG, sumB, inH, inW: Integer;
@@ -808,6 +830,7 @@ begin
         outBmp[i][j] := NearestColour;
       end;
     end;
+
     result := outBmp;
 end;
 
@@ -848,11 +871,11 @@ end;
 { Dither bitmap }
 function BitmapDither.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
 
-
 var
   OldPixel, NewPixel, Error: TPixel;
   outBmp: bmpArray;
   x, y, inH, inW: integer;
+
 begin
 
   { Find bitmap dimensions }
@@ -911,15 +934,18 @@ begin
       end;
     end;
   end;
+
   result := outBmp;
 end;
 
 { Detect edges in bitmap based on colour gradient difference using a threshold }
 function BitmapEdgeDetect.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
+
 var
   Threshold: TPixel;
   inH, inW: integer;
   outBmp : bmpArray;
+
 begin
   Threshold.setBlue(inputVariableInt);
   Threshold.setGreen(inputVariableInt);
@@ -932,11 +958,13 @@ end;
 
 { Calculate Edge Detection }
 function BitmapEdgeDetect.detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
+
 var
   X, Y, temp: Integer;
   GX, GY: TPixel; // Gradients in X and Y directions
   Gradient: GPixel; // Magnitude of gradient
   outBmp: bmpArray;
+
 begin
 
   { Allocate memory for ouput bitmap }
@@ -980,8 +1008,8 @@ begin
         outBmp[y,x].setBlue(255)
       else
         outBmp[y,x].setBlue(0);
-
     end;
+
     result := outBmp;
 end;
 
@@ -1048,6 +1076,13 @@ end;
 
 { Mitigation strategy for input argument -s or scale concrete product }
 function TsStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testDouble: double;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1154,6 +1189,13 @@ end;
 
 { Mitigation strategy for input argument --scale or scale concrete product }
 function TscaleStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testDouble: double;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1261,6 +1303,13 @@ end;
 
 { Mitigation strategy for input argument -r or rotate concrete product }
 function TrStrategy.Execute():boolean;
+
+var
+  Attr: longint;
+  testDouble: double;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1368,6 +1417,13 @@ end;
 
 { Mitigation strategy for input argument --rotate or rotate concrete product }
 function TrotateStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testDouble: double;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1475,6 +1531,12 @@ end;
 
 { Mitigation strategy for -# input argument or sharpen concrete product }
 function TsharpStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1571,6 +1633,12 @@ end;
 
 { Mitigation strategy for --sharpen or sharpen concrete product }
 function TsharpenStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1667,6 +1735,12 @@ end;
 
 { Mitigation strategy for -b input argument or blur concrete product }
 function TbStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1763,6 +1837,12 @@ end;
 
 { Mitigation strategy for --blur input argument or blur concrete product }
 function TblurStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1859,6 +1939,13 @@ end;
 
 { Mitigation strategy for -q input argument or quantize concrete product }
 function TqStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testInteger: integer;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -1949,7 +2036,7 @@ begin
     CloseFile(F);
   end;
 
-  { Test if fourth input argument is a double }
+  { Test if fourth input argument is an integer }
   try
     testInteger := StrToInt(ParamStr(4));
   except
@@ -1966,6 +2053,13 @@ end;
 
 { Mitigation strategy for --quantize or quantize concrete product }
 function TquantizeStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testInteger: integer;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -2056,11 +2150,11 @@ begin
     CloseFile(F);
   end;
 
-  { Test if fourth input argument is a double }
+  { Test if fourth input argument is an integer }
   try
-    testDouble := StrToFloat(ParamStr(4));
+    testInteger := StrToInt(ParamStr(4));
   except
-    on testDouble : Exception do
+    on testInteger : Exception do
     begin
       writeln('Fourth argument must be an integer representing colour count');
       result := false;
@@ -2073,6 +2167,12 @@ end;
 
 { Mitigation strategy for -d input argument or dither concrete product }
 function TdStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -2169,6 +2269,12 @@ end;
  
 { Mitigation strategy for --dither input argument or dither concrete product }
 function TditherStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -2265,6 +2371,13 @@ end;
   
 { Mitigation strategy for -e input arguement or edge concrete product }
 function TeStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testInteger: integer;
+  header: array[0..53] of byte;
+  F: file;
+
 begin
 
   { Check correct number of arguments have been entered }
@@ -2372,6 +2485,12 @@ end;
 
 { Mitigation strategy for --edge input argument or edge concrete product }
 function TedgeStrategy.Execute(): boolean;
+
+var
+  Attr: longint;
+  testInteger: integer;
+  header: array[0..53] of byte;
+  F: file;
 begin
 
   { Check correct number of arguments have been entered }
