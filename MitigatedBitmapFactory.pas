@@ -1,9 +1,7 @@
 //
 // Created by Matthew Abbott 1/5/2023
 // 
-//
-// debug to be done.
-//
+
 
 {$mode objfpc}
 {$M+}
@@ -953,6 +951,7 @@ begin
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
   outBmp := detect(inBmp, Threshold, inH, inW);
+
   result := outBmp
 end;
 
@@ -1065,6 +1064,7 @@ begin
     writeln('--edge    edge detect image');
     result := false;
   end;
+end;
 
   { Execute mitigation strategy for corrosponding concrete product }
   return := Strategy.Execute;
@@ -1081,12 +1081,13 @@ var
   Attr: longint;
   testDouble: double;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     writeln('Usage: BitmapTool -s input.bmp output.bmp <double> scale');
     result := false;
@@ -1107,8 +1108,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1124,7 +1125,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1145,7 +1147,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1182,7 +1184,7 @@ begin
     writeln('Fourth argument must be a double example 0.5 is half scale 1.5 is one and a half scale');
     result := false;
   end;
-
+end;
   { All tests passed return true }
   result := true;      
 end;
@@ -1194,12 +1196,13 @@ var
   Attr: longint;
   testDouble: double;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --scale input.bmp output.bmp <double> scale');
     result := false;
@@ -1220,8 +1223,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1237,7 +1240,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if  userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1258,7 +1262,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1308,12 +1312,13 @@ var
   Attr: longint;
   testDouble: double;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -r input.bmp output.bmp <double> angle');
     result := false;
@@ -1334,8 +1339,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1351,7 +1356,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1372,7 +1378,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1422,12 +1428,13 @@ var
   Attr: longint;
   testDouble: double;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --rotate input.bmp output.bmp <double> angle');
     result := false;
@@ -1448,8 +1455,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1465,7 +1472,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1486,7 +1494,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1535,12 +1543,13 @@ function TsharpStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -# input.bmp output.bmp');
     result := false;
@@ -1561,8 +1570,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1578,7 +1587,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1599,7 +1609,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1637,12 +1647,13 @@ function TsharpenStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --sharpen input.bmp output.bmp');
     result := false;
@@ -1663,8 +1674,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1680,7 +1691,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1701,7 +1713,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1739,12 +1751,13 @@ function TbStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -b input.bmp output.bmp');
     result := false;
@@ -1765,8 +1778,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1782,7 +1795,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1803,7 +1817,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1841,12 +1855,13 @@ function TblurStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --blur input.bmp output.bmp');
     result := false;
@@ -1867,8 +1882,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1884,7 +1899,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -1905,7 +1921,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -1944,12 +1960,13 @@ var
   Attr: longint;
   testInteger: integer;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -q input.bmp output.bmp <integer> colours');
     result := false;
@@ -1970,8 +1987,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -1987,7 +2004,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2008,7 +2026,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -2058,12 +2076,13 @@ var
   Attr: longint;
   testInteger: integer;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --quantize input.bmp output.bmp <integer> colours');
     result := false;
@@ -2084,8 +2103,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -2101,7 +2120,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2122,7 +2142,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -2171,12 +2191,13 @@ function TdStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -d input.bmp output.bmp');
     result := false;
@@ -2197,8 +2218,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -2214,7 +2235,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2235,7 +2257,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -2273,12 +2295,13 @@ function TditherStrategy.Execute(): boolean;
 var
   Attr: longint;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 3 then
+  if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --dither input.bmp output.bmp');
     result := false;
@@ -2299,8 +2322,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -2316,7 +2339,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2337,7 +2361,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -2376,12 +2400,13 @@ var
   Attr: longint;
   testInteger: integer;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
 
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -e input.bmp output.bmp <integer> threshold');
     result := false;
@@ -2402,8 +2427,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -2419,7 +2444,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2440,7 +2466,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
@@ -2490,11 +2516,13 @@ var
   Attr: longint;
   testInteger: integer;
   header: array[0..53] of byte;
-  F: file;
+  F, inFile: file;
+  userInput: char;
+
 begin
 
   { Check correct number of arguments have been entered }
-  if ParamCount != 4 then
+  if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --edge input.bmp output.bmp <integer> colours');
     result := false;
@@ -2515,8 +2543,8 @@ begin
     begin
       writeln('Input file is not a valid bitmap');
       result := false;
-    end;
-  end;
+    end
+  end
 
   else
   begin
@@ -2532,7 +2560,8 @@ begin
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    if read(userInput) <> 'y' then
+    read(userInput);
+    if userInput <> 'y' then
     begin
       writeln('Process canceled');
       result := false
@@ -2553,7 +2582,7 @@ begin
       end;
 
       { Get the files attributes }
-      Attr := FileGetAttr(F);
+      Attr := FileGetAttr(ParamStr(3));
 
       { Check if the file is read-only }
       if (Attr and faReadOnly) = faReadOnly then
