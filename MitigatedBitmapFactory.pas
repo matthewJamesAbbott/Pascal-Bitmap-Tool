@@ -2,7 +2,6 @@
 // Created by Matthew Abbott 1/5/2023
 // 
 //
-// Work on detecting if first two bytes in the input bitmap are BM for mitigation strategies on input file test
 // debug and var declarations still to be done.
 //
 
@@ -16,6 +15,7 @@ uses
 
 const
   KERNEL_SIZE = 3;
+
 type
 
   { Pixel }
@@ -51,87 +51,102 @@ type
       procedure setRed(inInteger: integer);
   end;
 
+  TColourTable = array[0..255] of TPixel; // Colour table for quantization
+  bmpArray = array of array of TPixel; // 2D array of pixels to carry bitmap images in
+  PPixel = ^TPixel; // pointer to a pixel
+  PArray = ^bmpArray; // pointer to entire bmp array
+
+  { Parent template mitigation strategy }
   TMitigationActionStrategy = class
     public
       function Execute(): boolean; virtual; abstract;
   end;
 
+  { Scale mitigation strategy using -s switch }
   TsStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Scale mitigation strategy using --scale switch }
   TscaleStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Rotate mitigation strategy using -r switch }
   TrStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Rotate mitigation strategy using --rotate switch }
   TrotateStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Blur mitigation strategy using -b switch }
   TbStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Blur mitigation strategy using --blur switch }
   TblurStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Sharpen mitigation strategy using -# switch }
   TsharpStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Sharpen mitigation strategy using --sharpen switch }
   TsharpenStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Quantize mitigation strategy using -q switch }
   TqStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Quantize mitigation strategy using --quantize switch }
   TquantizeStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Dither mitigation strategy using -d switch }
   TdStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Dither mitigation strategy using --dither switch }
   TditherStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Edge detection mitigation strategy using -e switch }
   TeStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
+  { Edge detection mitigation strategy using --edge switch }
   TedgeStrategy = class(TMitigationActionStrategy)
     public
       function Execute(): boolean; override;
   end;
 
-  TColourTable = array[0..255] of TPixel;
-  bmpArray = array of array of TPixel;
-  PPixel = ^TPixel; // pointer to a pixel
-  PArray = ^bmpArray; // pointer to entire bmp array
-
-  { Base Class for Bitmap Tools to inherit from or Product}
+  { Base Class for Bitmap Tools to inherit from or Product }
   BitmapTool = class
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; virtual; abstract;
@@ -191,7 +206,6 @@ type
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray; override;
   end;
-
 
   { Factory for creating Bitmap Tool Products }
   BitmapFactory = class
@@ -291,7 +305,6 @@ function GPixel.getRedInt(): integer;
 begin
   result := R;
 end;
-
 
 { Factory Product creation function }
 function BitmapFactory.createProduct(productType: string): BitmapTool;
@@ -942,7 +955,6 @@ begin
       GX.setBlue( (inBmp[y-1,x-1].getBlueInt + 2*inBmp[y-1,x].getBlueInt + inBmp[y-1,x+1].getBlueInt) -
             (inBmp[y+1,x-1].getBlueInt + 2*inBmp[y+1,x].getBlueInt + inBmp[y+1,x+1].getBlueInt));
 
-
       GY.setRed( (inBmp[y-1,x-1].getRedInt + 2*inBmp[y,x-1].getRedInt + inBmp[y+1,x-1].getRedInt) -
             (inBmp[y-1,x+1].getRedInt + 2*inBmp[y,x+1].getRedInt + inBmp[y+1,x+1].getRedInt));
       GY.setGreen( (inBmp[y-1,x-1].getGreenInt + 2*inBmp[y,x-1].getGreenInt+ inBmp[y+1,x-1].getGreenInt) -
@@ -988,7 +1000,7 @@ begin
     result := false;
   end;
   
-  { Check input arguements switching on first input argument }
+  { Check input arguments switching on first input argument }
   case (ParamStr(1)) of
     '-s':  Strategy := TsStrategy.Create;      
     '--scale': Strategy := TscaleStrategy.Create;
@@ -1037,6 +1049,7 @@ end;
 { Mitigation strategy for input argument -s or scale concrete product }
 function TsStrategy.Execute(): boolean;
 begin
+
   { Check correct number of arguments have been entered }
   if ParamCount != 4 then
   begin
@@ -1047,6 +1060,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1140,6 +1165,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1234,6 +1271,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1328,6 +1377,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1422,6 +1483,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1505,6 +1578,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1588,6 +1673,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1671,6 +1768,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1720,9 +1829,6 @@ begin
     end
   end
 
-
-
-
   { Output filename does not exist continue }
   else
   begin
@@ -1757,6 +1863,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1851,6 +1969,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -1945,6 +2075,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -2014,7 +2156,6 @@ begin
   result := true;      
 end;
  
-
 { Mitigation strategy for --dither input argument or dither concrete product }
 function TditherStrategy.Execute(): boolean;
 begin
@@ -2029,6 +2170,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -2112,6 +2265,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -2177,11 +2342,11 @@ begin
     CloseFile(F);
   end;
 
-  { Test if fourth input argument is a double }
+  { Test if fourth input argument is an integer }
   try
-    testDouble := StrToFloat(ParamStr(4));
+    testInteger := StrToInt(ParamStr(4));
   except
-    on testDouble : Exception do
+    on testInteger : Exception do
     begin
       writeln('Fourth argument must be an integer representing threshold');
       result := false;
@@ -2191,7 +2356,6 @@ begin
   { All tests passed return true }
   result := true;      
 end;
-
 
 { Mitigation strategy for --edge input argument or edge concrete product }
 function TedgeStrategy.Execute(): boolean;
@@ -2207,6 +2371,18 @@ begin
   { Check if second argument is a bitmap file }
   if FileExists(ParamStr(2)) then
   begin
+    Assign(inFile, ParamStr(2));
+    Reset(inFile, 1);
+    BlockRead(inFile, header, 54);
+    if PChar(@header[0])^ <> 'B' then
+    begin
+      writeln('Input file is not a valid bitmap');
+      result := false;
+    end;
+    if PChar(@header[1])^ <> 'M' then
+    begin
+      writeln('Input file is not a valid bitmap');
+    end;
   end;
 
   else
@@ -2272,11 +2448,11 @@ begin
     CloseFile(F);
   end;
 
-  { Test if fourth input argument is a double }
+  { Test if fourth input argument is a integer }
   try
-    testDouble := StrToFloat(ParamStr(4));
+    testInteger := StrToInt(ParamStr(4));
   except
-    on testDouble : Exception do
+    on testInteger : Exception do
     begin
       writeln('Fourth argument must be an integer representing threshold');
       result := false;
@@ -2286,10 +2462,6 @@ begin
   { All tests passed return true }
   result := true;      
 end;
- 
-
-
-	
    
 { Begining of main function }
 
