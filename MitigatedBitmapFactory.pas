@@ -1071,6 +1071,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1176,6 +1177,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1282,6 +1284,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1388,6 +1391,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1494,6 +1498,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1589,6 +1594,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1684,6 +1690,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1779,6 +1786,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1874,6 +1882,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -1980,6 +1989,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -2086,6 +2096,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -2181,6 +2192,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -2276,6 +2288,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
@@ -2382,6 +2395,7 @@ begin
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
+      result := false;
     end;
   end;
 
