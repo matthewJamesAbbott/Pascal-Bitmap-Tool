@@ -5,7 +5,7 @@
 {$mode objfpc}
 {$M+}
 
-program BitmapToolFactory;
+program BitmapFactoryRecords;
 
 uses
    math, sysutils;
@@ -298,10 +298,9 @@ begin
 
   { Find dimensions of bitmap }
   inH := length(inBmp);
-  inW := length(inBmp[length(inBmp)]);
-
-  { Find bitmaps centre }
-  cx := inW / 2;
+  inW := length(inBmp[high(inBmp)]);
+writeln('inH ' + inttostr(inH) + ' inW ' + inttostr(inW) + ' andgle ' + floattostr(angle));
+  cx := inW /2;
   cy := inH / 2;
 
   { Calculate new image size }
@@ -314,7 +313,7 @@ begin
 
   { Allocate memory for output bitmap }
   SetLength(outBmp, outH, outW);
-
+writeln('outH ' + inttostr(outH) + ' outW ' + inttostr(outW));
   { Calculate new pixel positions for output bitmap }
   for i := 0 to outH -1 do
   begin
@@ -326,14 +325,15 @@ begin
       yy := Round(-sina * x + cosa * y + cy);
       if (xx >= 0) and (xx < inW) and (yy >= 0) and (yy < inH) then
       begin
-        outBmp[i][j] := inBmp[high(inBmp) - yy][ xx];
+	outBmp[i][j].B := inBmp[yy][xx].B;
+	outBmp[i][j].G := inBmp[yy][xx].G;
+        outBmp[i][j].R := inBmp[yy][xx].R;
       end;
     end;
   end;
 
   result := outBmp;
 end;
-
 { Scale a bitmap }
 function BitmapScale.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
 var

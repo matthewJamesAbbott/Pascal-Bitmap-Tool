@@ -225,7 +225,7 @@ begin
 
   { Allocate memory for output bitmap }
   SetLength(outBmp, outH, outW);
-
+writeln('inH ' + inttostr(inH) + ' inW ' + inttostr(inW) + ' angle ' + floattostr(angle) + ' outH ' + inttostr(outH) + ' outW ' + inttostr(outW));
   { Calculate new pixel positions for output bitmap }
   for i := 0 to outH -1 do
   begin
@@ -237,7 +237,7 @@ begin
       yy := Round(-sina * x + cosa * y + cy);
       if (xx >= 0) and (xx < inW) and (yy >= 0) and (yy < inH) then
       begin
-        outBmp[i][j] := inBmp[high(inBmp) - yy][ xx];
+        outBmp[i][j] := inBmp[yy][xx];
       end;
     end;
   end;

@@ -20,7 +20,8 @@ type
       B: Byte;
       G: Byte;
       R: Byte;
-    public 
+    public
+      constructor Create(); 
       function getBlueByte(): byte;
       function getBlueInt(): integer;
       function getGreenByte(): byte;
@@ -121,6 +122,13 @@ type
       function LoadBitmap(filename: string): bmpArray;
       procedure SaveBitmap(filename: string; bmp: bmpArray);
   end;
+   
+constructor TPixel.Create();
+begin
+  setBlue(0);
+  setGreen(0);
+  setRed(0);
+end;
 
 { Set Pixel Blue }
 procedure TPixel.setBlue(inByte: byte);
@@ -216,12 +224,12 @@ end;
 { Factory Product creation function }
 function BitmapFactory.createProduct(productType: string): BitmapTool;
 begin
-  if productType = 'BoxBlur' then
+  if productType = 'Blur' then
     result := BitmapBoxBlur.Create()
   else if productType = 'Rotate' then
     result := BitmapRotate.Create()
   else if productType = 'Scale' then
-    result := BitmapRotate.Create()
+    result := BitmapScale.Create()
   else if productType = 'Sharpen' then
     result := BitmapSharpen.Create()
   else if productType = 'Quantize' then
@@ -236,13 +244,16 @@ end;
 
 { Load bitmap into a two dimensional array }
 function BitmapFactory.LoadBitmap(filename: string): bmpArray;
+
 var
   inFile: file;
   header: array[0..53] of byte;
   pixelSize, start: integer;
-  rowSize, paddingSize, stepSize: integer;
+  rowSize, paddingSize: integer;
   i, j, w ,h: integer;
   bmp: bmpArray;
+  tempColourChannel: byte;
+
 begin
   Assign(inFile, filename);
   Reset(inFile, 1);
@@ -267,13 +278,18 @@ begin
 
   { Allocate memory for bitmap }
   SetLength(bmp, h, w);
-
   { Read bitmap pixels }
   for i := h - 1 downto 0 do
   begin
     for j := 0 to w - 1 do
     begin
-      BlockRead(inFile, bmp[i][j], pixelSize);
+      bmp[i][j] := TPixel.Create();
+      BlockRead(inFile, tempColourChannel,1);
+      bmp[i][j].setBlue(tempColourChannel);
+      BlockRead(inFile, tempColourChannel,1); //round(pixelSize/3));
+      bmp[i][j].setGreen(tempColourChannel);
+      BlockRead(inFile, tempColourChannel,1); // round(pixelSize/3));
+      bmp[i][j].setRed(tempColourChannel);
     end;
     if paddingSize > 0 then
     begin
@@ -297,7 +313,7 @@ var
 begin
   Assign(outFile, filename);
   Rewrite(outFile, 1);
-
+writeln('save started');
   { Set bitmap header }
   FillChar(header, SizeOf(header), 0);
   header[0] := $42;
@@ -317,13 +333,17 @@ begin
 
   { Write bitmap header }
   BlockWrite(outFile, header, SizeOf(header));
+  
+  outPixel := TPixel.Create();
 
   { Write bitmap pixels }
-  for i := Length(bmp) - 1 downto 0 do
+  for i := high(bmp) downto 0 do
   begin
-    for j := 0 to Length(bmp[0]) - 1 do
+    for j := 0 to high(bmp[high(bmp)]) do
     begin
-      BlockWrite(outFile, bmp[i][j], pixelSize);
+      BlockWrite(outFile, bmp[i][j].getBlueByte,1);// round(pixelSize/3));
+      BlockWrite(outFile, bmp[i][j].getGreenByte,1);// round(pixelSize/3));
+      BlockWrite(outFile, bmp[i][j].getRedByte,1);// round(pixelSize/3));
     end;
     if paddingSize > 0 then
     begin
@@ -356,7 +376,6 @@ begin
       BlurredBitmap[y][x] := ApplyBoxBlur(x, y, inBmp);
     end;
   end;
-
   result := BlurredBitmap;
 end;
 
@@ -366,6 +385,7 @@ var
   i, j, count: Integer;
   sumR, sumG, sumB, inH, inW: Integer;
   outPixel: TPixel;
+
 begin
   inH := length(Bitmap);
   inW := length(Bitmap[high(Bitmap)]);
@@ -394,6 +414,7 @@ begin
   end;
 
   { Calculate average RGB value of kernel area and return pixel}
+  outPixel := TPixel.Create();
   outPixel.setBlue(Round(sumB / count));
   outPixel.setGreen(Round(sumG / count));
   outPixel.setRed(Round(sumR / count));
@@ -405,20 +426,17 @@ end;
 function BitmapRotate.use(inputVariableInt: integer; inputVariableReal: real; inBmp: bmpArray): bmpArray;
 var
 x, y, i, j, xx, yy, inH, inW: integer;
-cx, cy, sina, cosa, scale, angle: real;
+cx, cy, sina, cosa, angle: real;
 w2, h2, outW, outH: integer;
 outBmp: bmpArray;
 begin
-
   { Assign angle to input argument }
   angle := inputVariableReal;
 
   { Find dimensions of bitmap }
   inH := length(inBmp);
-  inW := length(inBmp[length(inBmp)]);
-
-  { Find bitmaps centre }
-  cx := inW / 2;
+  inW := length(inBmp[high(inBmp)]);
+  cx := inW /2;
   cy := inH / 2;
 
   { Calculate new image size }
@@ -437,13 +455,24 @@ begin
   begin
     for j := 0 to outW -1 do
     begin
+      outBmp[i][j] := TPixel.Create();
+    end;
+  end;
+
+  for i := 0 to outH -1 do
+  begin
+    for j := 0 to outW -1 do
+    begin
+
       x := j - w2 div 2;
       y := h2 div 2 - i;
       xx := Round(cosa * x + sina * y + cx);
       yy := Round(-sina * x + cosa * y + cy);
       if (xx >= 0) and (xx < inW) and (yy >= 0) and (yy < inH) then
       begin
-        outBmp[i][j] := inBmp[high(inBmp) - yy][ xx];
+        outBmp[i][j].setBlue(inBmp[yy][xx].getBlueByte);
+        outBmp[i][j].setGreen(inBmp[yy][xx].getGreenByte);
+        outBmp[i][j].setRed(inBmp[yy][xx].getRedByte);
       end;
     end;
   end;
@@ -511,6 +540,7 @@ begin
   b := Round((1 - a) * inBmp[i][j].getBlueInt + a * inBmp[i][j + 1].getBlueInt);
 
   { Clamp pixel red green and blue channels }
+  outPixel := TPixel.Create();
   outPixel.setBlue(Clamp(Round(b), 0, 255));
   outPixel.setGreen(Clamp(Round(g), 0, 255));
   outPixel.setRed(Clamp(Round(r), 0, 255));
@@ -552,6 +582,7 @@ begin
   end;
 
   { Clamp pixel red green and blue channels }
+  outPixel := TPixel.Create();
   outPixel.setBlue(Clamp(Round(b), 0, 255));
   outPixel.setGreen(Clamp(Round(g), 0, 255));
   outPixel.setRed(Clamp(Round(r), 0, 255));
@@ -584,7 +615,8 @@ begin
       outBmp[i][j] := outPixel;
     end;
   end;
-  DownScaleBitmap := outBmp;
+
+  result := outBmp;
 end;
 
 { Scale bitmap up }
@@ -619,7 +651,8 @@ begin
         end;
      end;
   end;
-  UpScaleBitmap := outBmp;
+
+  result := outBmp;
 end;
 
 { Sharpen bitmap }
@@ -633,9 +666,8 @@ const
     (0, -1, 0)
   );
 var
-  I, J, K, L: Integer;
+  i, j, k, l: Integer;
   sumR, sumG, sumB, inH, inW: Integer;
-  outBmp: bmpArray;
 
 begin
   
@@ -644,36 +676,36 @@ begin
   inW := length(inBmp[high(inBmp)]);
 
   { Allocate memory for out bitmap }
-  setLength(outBmp, inH, inW);
-
+  //setLength(outBmp, inH, inW);
+  //outBmp := inBmp;
   { Loop through pixels in bitmap }
-  for I := 1 to inH-2 do
-    for J := 1 to inW-2 do
+  for i := 1 to inH-2 do
+    for j := 1 to inW-2 do
     begin
       sumR := 0;
       sumG := 0;
       sumB := 0;
 
       { Loop through pixels in kernel }
-      for K := -1 to 1 do
+      for k := -1 to 1 do
       begin
-        for L := -1 to 1 do
+        for l := -1 to 1 do
         begin
 
           { Apply sharpen to red green and blue colour channels in pixel }
-          sumR := sumB + inBmp[I+K, J+L].getBlueInt * Kernel[K, L];
-          sumG := sumG + inBmp[I+K, J+L].getGreenInt * Kernel[K, L];
-          sumB := sumR + inBmp[I+K, J+L].getRedInt * Kernel[K, L];
+          sumR := sumB + inBmp[i+k][j+l].getBlueInt * Kernel[k][l];
+          sumG := sumG + inBmp[i+k][j+l].getGreenInt * Kernel[k][l];
+          sumB := sumR + inBmp[i+k][j+l].getRedInt * Kernel[k][l];
         end;
       end;
 
       { Ensure pixel's red green and blue channels are within range }
-      outBmp[I, J].setBlue(EnsureRange(sumB div 1, 0, 255));
-      outBmp[I, J].setGreen(EnsureRange(sumG div 1, 0, 255));
-      outBmp[I, J].setRed(EnsureRange(SumR div 1, 0, 255));
+      inBmp[i][j].setBlue(EnsureRange(sumB div 1, 0, 255));
+      inBmp[i][j].setGreen(EnsureRange(sumG div 1, 0, 255));
+      inBmp[i][j].setRed(EnsureRange(SumR div 1, 0, 255));
     end;
 
-  result := outBmp;
+  result := inBmp;
 end;
 
 // this function needs the colourtables matched to colour bit ratios,
@@ -699,6 +731,7 @@ begin
     { Set ColourTable }
     for i := 1 to NumColours do
     begin
+      ColourTable[i-1] := TPixel.Create();
       ColourTable[i-1].setBlue(trunc(256 / i)); // random(256));
       ColourTable[i-1].setGreen(trunc(256 / (NumColours - i + 1))); // random(256));
       ColourTable[i-1].setRed(trunc(256 / i)); // random(256));
@@ -769,6 +802,8 @@ begin
   { Allocate memory to output bitmap }
   setLength(outBmp, inH, inW);
 
+  NewPixel := TPixel.Create();
+  Error := TPixel.Create();
   { Loop over pixels in bitmap }
   for y := 0 to inH - 1 do
   begin
@@ -789,7 +824,10 @@ begin
       Error.setRed(OldPixel.getRedInt - NewPixel.getRedInt);
 
       { Write new pixel to output bitmap }
-      outBmp[y][x] := NewPixel;
+      outBmp[y][x] := TPixel.Create();
+      outBmp[y][x].setBlue(NewPixel.getBlueByte);
+      outBmp[y][x].setGreen(NewPixel.getGreenByte);
+      outBmp[y][x].setRed(NewPixel.getGreenByte);
 
       { Calculate dither from error generated }
       if x < inW - 1 then
@@ -816,8 +854,13 @@ begin
         inBmp[y + 1, x + 1].setGreen(inBmp[y + 1, x + 1].getGreenInt + Error.getGreenInt div 16);
         inBmp[y + 1, x + 1].setRed(inBmp[y + 1, x + 1].getRedInt + Error.getRedInt div 16);
       end;
+      //writeln('Blue : ' + inttostr(outBmp[y][x].getGreenInt));
+      //writeln('Green : ' + inttostr(outBmp[y][x].getGreenInt));
+      //writeln('Red : ' + inttostr(outBmp[y][x].getGreenInt));
     end;
   end;
+  NewPixel.Free;
+  Error.Free;
   result := outBmp;
 end;
 
@@ -828,19 +871,21 @@ var
   inH, inW: integer;
   outBmp : bmpArray;
 begin
+  Threshold := TPixel.Create();
   Threshold.setBlue(inputVariableInt);
   Threshold.setGreen(inputVariableInt);
   Threshold.setRed(inputVariableInt);
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
   outBmp := detect(inBmp, Threshold, inH, inW);
+  Threshold.Free;
   result := outBmp
 end;
 
 { Calculate Edge Detection }
 function BitmapEdgeDetect.detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
 var
-  X, Y, temp: Integer;
+  X, Y: Integer;
   GX, GY: TPixel; // Gradients in X and Y directions
   Gradient: GPixel; // Magnitude of gradient
   outBmp: bmpArray;
@@ -848,7 +893,11 @@ begin
 
   { Allocate memory for ouput bitmap }
   setLength(outBmp, inH, inW);
-
+  
+  GX := TPixel.Create();
+  GY := TPixel.Create();
+  Gradient := GPixel.Create();
+  outBmp := inBmp;
   { Loop over all pixels in the bitmap }
   for y := 1 to inH - 2 do
     for x := 1 to inW - 2 do
@@ -873,8 +922,9 @@ begin
       { Calculate magnitude of gradient }
       Gradient.setRed(Abs(GX.getRedInt) + Abs(GY.getRedInt));
       Gradient.setGreen(Abs(GX.getGreenInt) + Abs(GY.getGreenInt));
-      Gradient.setRed(Abs(GX.getRedInt) + Abs(GY.getRedInt));
+      Gradient.setBlue(Abs(GX.getBlueInt) + Abs(GY.getBlueInt));
 
+      //outBmp[y][x] := TPixel.Create();
       { Threshold gradient and set output pixel }
       if Gradient.getRedInt > Threshold.getRedInt then
         outBmp[y,x].setRed(255)
@@ -890,6 +940,9 @@ begin
         outBmp[y,x].setBlue(0);
 
     end;
+    GY.Free;
+    GX.Free;
+    Gradient.Free;
     result := outBmp;
 end;
 
