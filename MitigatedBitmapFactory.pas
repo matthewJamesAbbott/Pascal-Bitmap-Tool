@@ -961,6 +961,7 @@ var
   Threshold: TPixel;
   inH, inW: integer;
   outBmp : bmpArray;
+
 begin
   Threshold := TPixel.Create();
   Threshold.setBlue(inputVariableInt);
@@ -980,6 +981,7 @@ var
   GX, GY: TPixel; // Gradients in X and Y directions
   Gradient: GPixel; // Magnitude of gradient
   outBmp: bmpArray;
+
 begin
 
   { Allocate memory for ouput bitmap }
@@ -1051,7 +1053,7 @@ begin
     Writeln('Usage: BitmapTool <switch> input.bmp output.bmp optional argument');
     result := false;
   end;
-
+  return := true;
   { Check input arguments switching on first input argument }
   case (ParamStr(1)) of
     '-s':  Strategy := TsStrategy.Create;
@@ -1068,32 +1070,34 @@ begin
     '--dither':  Strategy := TditherStrategy.Create;
     '-e':  Strategy := TeStrategy.Create;
     '--edge':  Strategy := TedgeStrategy.Create;
-  else
+    else
 
-  { Give user list of switch options due to input error }
+    { Give user list of switch options due to input error }
+    begin
+      writeln('switch needs to be defined');
+      writeln('-s    scale image');
+      writeln('--scale    scale image');
+      writeln('-r    rotate image');
+      writeln('--rotate   rotate image');
+      writeln('-#    sharpen image');
+      writeln('--sharpen    sharpen image');
+      writeln('-b    blur image');
+      writeln('--blur    blur image');
+      writeln('-q    quantize image');
+      writeln('--quantize    quantize image');
+      writeln('-d    dither image');
+      writeln('--dither    dither image');
+      writeln('-e    edge detect image');
+      writeln('--edge    edge detect image');
+      return := false;
+  end; end;
+  if return then
   begin
-    writeln('switch needs to be defined');
-    writeln('-s    scale image');
-    writeln('--scale    scale image');
-    writeln('-r    rotate image');
-    writeln('--rotate   rotate image');
-    writeln('-#    sharpen image');
-    writeln('--sharpen    sharpen image');
-    writeln('-b    blur image');
-    writeln('--blur    blur image');
-    writeln('-q    quantize image');
-    writeln('--quantize    quantize image');
-    writeln('-d    dither image');
-    writeln('--dither    dither image');
-    writeln('-e    edge detect image');
-    writeln('--edge    edge detect image');
-    result := false;
-  end;
-end;
 
-  { Execute mitigation strategy for corrosponding concrete product }
-  return := Strategy.Execute;
-  Strategy.Free;
+    { Execute mitigation strategy for corrosponding concrete product }
+    return := Strategy.Execute;
+    Strategy.Free;
+  end;
 
   { Return result of mitigation strategy testing }
   result := return;
@@ -1108,18 +1112,20 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     writeln('Usage: BitmapTool -s input.bmp output.bmp <double> scale');
-    result := false;
+    return := false;
   end;
-
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1127,91 +1133,95 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
-    end
+      return := false;
+    end;
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     writeln('Usage: BitmapTool -s input.bmp output.bmp <double> scale');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
-  { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
-  begin
-    writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
-
-    { Test any key other than y is pressed }
-    read(userInput);
-    if userInput <> 'y' then
+    { Check if output file already exists }
+    if (FileExists(ParamStr(3))) and (return) then
     begin
-      writeln('Process canceled');
-      result := false
+      writeln('File already exists do you wish to overwrite it ?');
+      writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
+
+      { Test any key other than y is pressed }
+      readln(userInput);
+      if userInput <> 'y' then
+      begin
+        writeln('Process canceled');
+        return := false
+      end
+
+      { y is pressed continue }
+      else
+      begin
+
+        { Test file is writable }
+        AssignFile(F, ParamStr(3));
+        try
+          Rewrite(F);
+        except
+          writeln('File is not creatable');
+          CloseFile(F);
+          return := false;
+        end;
+
+        { Get the files attributes }
+        Attr := FileGetAttr(ParamStr(3));
+
+        { Check if the file is read-only }
+        if (Attr and faReadOnly) = faReadOnly then
+        begin
+          writeln('File is read only');
+          CloseFile(F);
+          return := false;
+        end;
+      end;
     end
 
-    { y is pressed continue }
-    else
+    { Output filename does not exist continue }
+    else if (FileExists(ParamStr(3)) = false) and (return) then
     begin
 
-      { Test file is writable }
+      { Check file is writable }
       AssignFile(F, ParamStr(3));
       try
         Rewrite(F);
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
-
-      { Get the files attributes }
-      Attr := FileGetAttr(ParamStr(3));
-
-      { Check if the file is read-only }
-      if (Attr and faReadOnly) = faReadOnly then
-      begin
-        writeln('File is read only');
-        CloseFile(F);
-        result := false;
-      end
-    end
-  end
-
-  { Output filename does not exist continue }
-  else
-  begin
-
-    { Check file is writable }
-    AssignFile(F, ParamStr(3));
-    try
-      Rewrite(F);
-    except
-      writeln('File is not creatable');
       CloseFile(F);
-      result := false;
     end;
-    CloseFile(F);
-  end;
 
-  { Test if fourth input argument is a double }
-  try
-    testDouble := StrToFloat(ParamStr(4));
-  except
-    on testDouble : Exception do
-  begin
-    writeln('Fourth argument must be a double example 0.5 is half scale 1.5 is one and a half scale');
-    result := false;
-  end;
-end;
-  { All tests passed return true }
-  result := true;
+    { Test if fourth input argument is a double }
+    if return then
+    begin
+      try
+        testDouble := StrToFloat(ParamStr(4));
+      except
+        on testDouble : Exception do
+        begin
+          writeln('Fourth argument must be a double example 0.5 is half scale 1.5 is one and a half scale');
+          return := false;
+        end; 
+      end;
+    end;
+
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for input argument --scale or scale concrete product }
@@ -1223,18 +1233,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --scale input.bmp output.bmp <double> scale');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1242,34 +1255,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --scale input.bmp output.bmp <double> scale');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if  userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1283,7 +1296,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1294,13 +1307,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1310,24 +1323,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is a double }
-  try
-    testDouble := StrToFloat(ParamStr(4));
-  except
-    on testDouble : Exception do
-    begin
-      writeln('Fourth argument must be a double example 0.5 is half scale 1.5 is one and a half scale');
-      result := false;
+  if return then
+  begin
+    try
+      testDouble := StrToFloat(ParamStr(4));
+    except
+      on testDouble : Exception do
+      begin
+        writeln('Fourth argument must be a double example 0.5 is half scale 1.5 is one and a half scale');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for input argument -r or rotate concrete product }
@@ -1339,18 +1355,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -r input.bmp output.bmp <double> angle');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1358,34 +1377,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool -r input.bmp output.bmp <double> angle');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1399,7 +1418,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1410,13 +1429,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1426,24 +1445,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is a double }
-  try
-    testDouble := StrToFloat(ParamStr(4));
-  except
-    on testDouble : Exception do
-    begin
-      writeln('Fourth argument must be a double between 0 and 1');
-      result := false;
+  if (return) then
+  begin
+    try
+      testDouble := StrToFloat(ParamStr(4));
+    except
+      on testDouble : Exception do
+      begin
+        writeln('Fourth argument must be a double between 0 and 1');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for input argument --rotate or rotate concrete product }
@@ -1455,18 +1477,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --rotate input.bmp output.bmp <double> angle');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1474,34 +1499,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --rotate input.bmp output.bmp <double> angle');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
     read(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1515,7 +1540,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1526,13 +1551,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1542,24 +1567,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is a double }
-  try
-    testDouble := StrToFloat(ParamStr(4));
-  except
-    on testDouble : Exception do
-    begin
-      writeln('Fourth argument must be a double between 0 and 1');
-      result := false;
+  if (return) then
+  begin
+    try
+      testDouble := StrToFloat(ParamStr(4));
+    except
+      on testDouble : Exception do
+      begin
+        writeln('Fourth argument must be a double between 0 and 1');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for -# input argument or sharpen concrete product }
@@ -1570,18 +1598,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -# input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1589,38 +1620,38 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool -# input.bmp output.bmp <double>');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
-    else
+    else 
     begin
 
       { Test file is writable }
@@ -1630,7 +1661,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1641,13 +1672,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1657,13 +1688,13 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for --sharpen or sharpen concrete product }
@@ -1674,18 +1705,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --sharpen input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1693,34 +1727,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --sharpen input.bmp output.bmp');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1734,7 +1768,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1745,13 +1779,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
-      end
-    end
+        return := false;
+      end;
+    end;
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1761,13 +1795,13 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for -b input argument or blur concrete product }
@@ -1778,18 +1812,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -b input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1797,34 +1834,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool -b input.bmp output.bmp');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1838,7 +1875,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1849,13 +1886,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
-      end
-    end
+        return := false;
+      end;
+    end;
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1865,13 +1902,13 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for --blur input argument or blur concrete product }
@@ -1882,18 +1919,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --blur input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -1901,34 +1941,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --blur input.bmp output.bmp');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -1942,7 +1982,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -1953,13 +1993,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -1969,12 +2009,12 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
+  { Return result of tests }
   result := true;
 end;
 
@@ -1987,18 +2027,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -q input.bmp output.bmp <integer> colours');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2006,34 +2049,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
     if PChar(@header[1])^ <> 'M' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool -q input.bmp output.bmp <integer> colours');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2047,7 +2090,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2058,13 +2101,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -2074,23 +2117,26 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is an integer }
-  try
-    testInteger := StrToInt(ParamStr(4));
-  except
-    on testInteger : Exception do
-    begin
-      writeln('Fourth argument must be an integer representing colour count');
-      result := false;
+  if (return) then
+  begin
+    try
+      testInteger := StrToInt(ParamStr(4));
+    except
+      on testInteger : Exception do
+      begin
+        writeln('Fourth argument must be an integer representing colour count');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
+  { Return result of tests }
   result := true;
 end;
 
@@ -2103,6 +2149,7 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
 
@@ -2110,11 +2157,11 @@ begin
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --quantize input.bmp output.bmp <integer> colours');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2122,34 +2169,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --quantize input.bmp output.bmp <integer> colours');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2163,7 +2210,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2174,13 +2221,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -2190,24 +2237,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is an integer }
-  try
-    testInteger := StrToInt(ParamStr(4));
-  except
-    on testInteger : Exception do
-    begin
-      writeln('Fourth argument must be an integer representing colour count');
-      result := false;
+  if (return) then
+  begin
+    try
+      testInteger := StrToInt(ParamStr(4));
+    except
+      on testInteger : Exception do
+      begin
+        writeln('Fourth argument must be an integer representing colour count');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result from tests }
+  result := return;
 end;
 
 { Mitigation strategy for -d input argument or dither concrete product }
@@ -2218,18 +2268,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool -d input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2237,34 +2290,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (fileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool -d input.bmp output.bmp');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
-    writeln('Please enter y to continue or another key to cancel process :');
+    writeln('Please press y and then enter to continue or another key and then enter to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2278,7 +2331,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2289,13 +2342,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -2305,12 +2358,12 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
+  { Return result of tests }
   result := true;
 end;
 
@@ -2322,18 +2375,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 3 then
   begin
     Writeln('Usage: BitmapTool --dither input.bmp output.bmp');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2341,34 +2397,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --dither input.bmp output.bmp');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2382,7 +2438,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2393,13 +2449,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -2409,12 +2465,12 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
-  { All tests passed return true }
+  { Return result of tests }
   result := true;
 end;
 
@@ -2427,18 +2483,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return : boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool -e input.bmp output.bmp <integer> threshold');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2446,34 +2505,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then 
   begin
     Writeln('Usage: BitmapTool -e input.bmp output.bmp <integer> threshold');
     Writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if FileExists(ParamStr(3)) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2487,7 +2546,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2498,7 +2557,7 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
+        return := false;
       end
     end
   end
@@ -2514,24 +2573,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is an integer }
-  try
-    testInteger := StrToInt(ParamStr(4));
-  except
-    on testInteger : Exception do
-    begin
-      writeln('Fourth argument must be an integer representing threshold');
-      result := false;
+  if (return) then
+  begin
+    try
+      testInteger := StrToInt(ParamStr(4));
+    except
+      on testInteger : Exception do
+      begin
+        writeln('Fourth argument must be an integer representing threshold');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Mitigation strategy for --edge input argument or edge concrete product }
@@ -2543,18 +2605,21 @@ var
   header: array[0..53] of byte;
   F, inFile: file;
   userInput: char;
+  return: boolean;
 
 begin
+
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
   begin
     Writeln('Usage: BitmapTool --edge input.bmp output.bmp <integer> colours');
-    result := false;
+    return := false;
   end;
 
   { Check if second argument is a bitmap file }
-  if FileExists(ParamStr(2)) then
+  if (FileExists(ParamStr(2))) and (return) then
   begin
     Assign(inFile, ParamStr(2));
     Reset(inFile, 1);
@@ -2562,34 +2627,34 @@ begin
     if PChar(@header[0])^ <> 'B' then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end;
-    if PChar(@header[1])^ <> 'M' then
+    if (PChar(@header[1])^ <> 'M') and (return) then
     begin
       writeln('Input file is not a valid bitmap');
-      result := false;
+      return := false;
     end
   end
 
-  else
+  else if (FileExists(ParamStr(2)) = false) and (return) then
   begin
     Writeln('Usage: BitmapTool --edge input.bmp output.bmp <integer> threshold');
     writeln('Please use a valid bitmap file for the input.bmp argument');
-    result := false;
+    return := false;
   end;
 
   { Check if output file already exists }
-  if FileExists(ParamStr(3)) then
+  if (FileExists(ParamStr(3))) and (return) then
   begin
     writeln('File already exists do you wish to overwrite it ?');
     writeln('Please enter y to continue or another key to cancel process :');
 
     { Test any key other than y is pressed }
-    read(userInput);
+    readln(userInput);
     if userInput <> 'y' then
     begin
       writeln('Process canceled');
-      result := false
+      return := false
     end
 
     { y is pressed continue }
@@ -2603,7 +2668,7 @@ begin
       except
         writeln('File is not creatable');
         CloseFile(F);
-        result := false;
+        return := false;
       end;
 
       { Get the files attributes }
@@ -2614,13 +2679,13 @@ begin
       begin
         writeln('File is read only');
         CloseFile(F);
-        result := false;
-      end
+        return := false;
+      end;
     end
   end
 
   { Output filename does not exist continue }
-  else
+  else if (FileExists(ParamStr(3)) = false) and (return) then
   begin
 
     { Check file is writable }
@@ -2630,24 +2695,27 @@ begin
     except
       writeln('File is not creatable');
       CloseFile(F);
-      result := false;
+      return := false;
     end;
     CloseFile(F);
   end;
 
   { Test if fourth input argument is a integer }
-  try
-    testInteger := StrToInt(ParamStr(4));
-  except
-    on testInteger : Exception do
-    begin
-      writeln('Fourth argument must be an integer representing threshold');
-      result := false;
+  if (return) then
+  begin
+    try
+      testInteger := StrToInt(ParamStr(4));
+    except
+      on testInteger : Exception do
+      begin
+        writeln('Fourth argument must be an integer representing threshold');
+        return := false;
+      end;
     end;
   end;
 
-  { All tests passed return true }
-  result := true;
+  { Return result of tests }
+  result := return;
 end;
 
 { Begining of main function }
