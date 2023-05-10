@@ -48,8 +48,8 @@ type
       procedure setRed(inInteger: integer);
   end;
 
-  TColourTable = array[0..255] of TPixel;
-  bmpArray = array of array of TPixel;
+  TColourTable = array[0..255] of TPixel; // colour table for quantization
+  bmpArray = array of array of TPixel; // Array to store images in
   PPixel = ^TPixel; // pointer to a pixel
   PArray = ^bmpArray; // pointer to entire bmp array
 
@@ -234,7 +234,6 @@ type
   { Bridge refined abstraction for file operations }
   TFileTransfer = class(TFileOperation)
   private
-    fBmp: bmpArray;
     fFileName: string;
   public
     constructor Create(fileName: string; FileAPI: TFileAPI);
@@ -249,6 +248,7 @@ type
     function LoadFromFile(fileName: string): bmpArray; override;
   end;
 
+{ Pixel constructor }
 constructor TPixel.Create();
 begin
   setBlue(0);
@@ -346,22 +346,26 @@ begin
   result := R;
 end;
 
+{ Constructor for bridge abstraction }
 constructor TFileOperation.Create(FileAPI: TFileAPI);
 begin
   fFileAPI := FileAPI;
 end;
 
+{ Constructor for bridge refined abstraction }
 constructor TFileTransfer.Create(fileName: string; FileAPI: TFileAPI);
 begin
   inherited Create(FileAPI);
   fFilename := fileName;
 end;
 
+{ Save procedure for bridge refined abstraction }
 procedure TFileTransfer.Save(bmp: bmpArray);
 begin
   fFileAPI.SaveToFile(fFileName, bmp);
 end;
 
+{ Load function for bridge refined abstraction }
 function TFileTransfer.Load(): bmpArray;
 begin
   result := fFileAPI.LoadFromFile(fFileName);
@@ -436,10 +440,11 @@ var
   rowSize, paddingSize: integer;
   i, j: integer;
   outPixel: TPixel;
+
 begin
   Assign(outFile, filename);
   Rewrite(outFile, 1);
-writeln('save started');
+  writeln('save started');
 
 { Set bitmap header }
   FillChar(header, SizeOf(header), 0);
@@ -461,9 +466,8 @@ writeln('save started');
   { Write bitmap header }
   BlockWrite(outFile, header, SizeOf(header));
   
-  outPixel := TPixel.Create();
-
   { Write bitmap pixels }
+  outPixel := TPixel.Create();
   for i := high(bmp) downto 0 do
   begin
     for j := 0 to high(bmp[high(bmp)]) do
@@ -480,12 +484,15 @@ writeln('save started');
       BlockWrite(outFile, outPixel, paddingSize);
     end;
   end;
+  
   Close(outFile);
 end;
 
 { Factory Product creation function }
 function BitmapFactory.createProduct(productType: string): BitmapTool;
 begin
+
+  { Create bitmap tool switched on productType }
   if productType = 'Blur' then
     result := BitmapBoxBlur.Create()
   else if productType = 'Rotate' then
@@ -501,23 +508,32 @@ begin
   else if productType = 'Edge' then
     result := BitmapEdgeDetect.Create()
   else
-    result := nil;
+
+  result := nil;
 end;
 
+{ Bitmap factory save to bitmap procedure }
 procedure BitmapFactory.SaveBitmap(fileName: string; bmp: bmpArray);
 var
   F: TFileOperation;
 begin
+
+  { Create bridge to bitmap saving procedure and save bitmap }
   F := TFileTransfer.Create(fileName, TBmpFileAPI.Create);
   F.Save(bmp);
+
 end;
 
+{ Bitmap factory load from bitmap function }
 function BitmapFactory.LoadBitmap(fileName: string): bmpArray;
 var
   F: TFileOperation;
 begin
+
+  { Create bridge to bitmap loading function and load bitmap into array }
   F := TFileTransfer.Create(fileName, TBmpFileAPI.Create);
   result := F.Load();
+
 end;
   
 
@@ -654,15 +670,24 @@ var
   outBmp: bmpArray;
 
 begin
+
+  { Assign scale to the value of input argument }
   scale := inputVariableReal;
+
+  { Find bitmaps dimensions }
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
+
+  { Calculate scaled bitmaps dimensions }
   outW := Round(inW * scale);
   outH := Round(inH * scale);
+
+  { Test if scale is higher or lower than 1 then execute upscale or downscale functions }
   if scale <= 1 then
     outBmp := DownScaleBitmap(inBmp, inW, inH, outW, outH, scale)
   else
     outBmp := UpscaleBitmap(inBmp, inW, inH, outW, outH, scale);
+
   result := outBmp; 
 end;
 
@@ -685,6 +710,7 @@ var
   r, g, b: integer;
   a: real;
   outPixel: TPixel;
+
 begin
 
   { Assign real values to x and y co ordinates }
@@ -815,6 +841,7 @@ begin
               r := Floor(r + scale);
            end;
         end;
+
      end;
   end;
 
@@ -885,6 +912,8 @@ var
   outBmp: bmpArray;
 
 begin
+
+    { Assign NumColours to the value of input argument }
     NumColours := inputVariableInt;
 
     { Find dimensions of bitmap }
@@ -1027,6 +1056,7 @@ begin
   end;
   NewPixel.Free;
   Error.Free;
+  
   result := outBmp;
 end;
 
@@ -1038,14 +1068,21 @@ var
   outBmp : bmpArray;
 
 begin
+
+  { Create and Assign values for Threshold R, G and B to input argument }
   Threshold := TPixel.Create();
   Threshold.setBlue(inputVariableInt);
   Threshold.setGreen(inputVariableInt);
   Threshold.setRed(inputVariableInt);
+
+  { Find image dimensions }
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
+
+  { Calculate edge detection }
   outBmp := detect(inBmp, Threshold, inH, inW);
   Threshold.Free;
+
   result := outBmp
 end;
 
@@ -1191,6 +1228,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1199,6 +1237,7 @@ begin
     writeln('Usage: BitmapTool -s input.bmp output.bmp <double> scale');
     return := false;
   end;
+
   { Check if second argument is a bitmap file }
   if (FileExists(ParamStr(2))) and (return) then
   begin
@@ -1312,6 +1351,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1434,6 +1474,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1556,6 +1597,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1677,6 +1719,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1784,6 +1827,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1891,6 +1935,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -1998,6 +2043,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -2106,6 +2152,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -2178,6 +2225,7 @@ begin
         CloseFile(F);
         return := false;
       end
+
     end
   end
 
@@ -2194,6 +2242,7 @@ begin
       CloseFile(F);
       return := false;
     end;
+
     CloseFile(F);
   end;
 
@@ -2227,6 +2276,9 @@ var
   return: boolean;
 
 begin
+
+  { Set test bias to true unless failed }
+  return := true;
 
   { Check correct number of arguments have been entered }
   if ParamCount <> 4 then
@@ -2347,6 +2399,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -2454,6 +2507,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -2562,6 +2616,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
@@ -2684,6 +2739,7 @@ var
 
 begin
 
+  { Set test bias to true unless failed }
   return := true;
 
   { Check correct number of arguments have been entered }
