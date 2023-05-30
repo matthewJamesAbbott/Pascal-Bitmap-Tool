@@ -172,8 +172,6 @@ type
 
   { Box Blur Concrete Product }
   BitmapBoxBlur = class(BitmapTool)
-    private 
-//      function ApplyBoxBlur(x, y: integer; Bitmap: bmpArray): TPixel;
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
   end;
@@ -199,14 +197,26 @@ type
 
   { Scale Concrete Product }
   BitmapScale = class(BitmapTool)
-    private
-      function clamp(x, a, b: byte): byte;
-      function DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
-      function UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
-      function DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
-      function UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
-    public
-      function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
+  public
+    function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
+  end;
+
+  { Scale Threaded Concrete Product }
+  ScaleThread = class(TThread)
+  private
+    inputBmp: bmpArray;
+    scaledBitmap: bmpArray;
+    inputScale: real;
+    function clamp(x, a, b: byte): byte;
+    function DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+    function UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+    function DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+    function UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inBmp: bmpArray; scale: real);
+    function GetResult(): bmpArray;
   end;
 
   { Sharpen Concrete Product }
@@ -654,6 +664,7 @@ begin
 
   Assign(inFile, filename);
   Reset(inFile, 1);
+  writeln('Loading file: ', filename);
 
   { Read bitmap header }
   BlockRead(inFile, header, 54);
@@ -699,7 +710,6 @@ begin
       end;
     end;
   end;
-writeln('first few parts done');
   for i := high(Arrays[NumCores -1]) downto 0 do
   begin
     for j := 0 to w- 1 do
@@ -712,14 +722,14 @@ writeln('first few parts done');
       BlockRead(inFile, tempColourChannel, 1);
       Arrays[NumCores-1][i, j].setRed(tempColourChannel);
     end;
-writeln('second part done');
     if paddingSize > 0 then
     begin
       Seek(inFile, FilePos(inFile) + paddingSize);
     end;
   end;
-writeln('return');
   Close(inFile);
+  writeln('Load complete');
+
   result := Arrays;
 end;
 
@@ -738,12 +748,13 @@ begin
   NumCores := TThread.ProcessorCount;
   Assign(outFile, filename);
   Rewrite(outFile, 1);
-  writeln('save started');
   h := 0;
   for i := 0 to high(bmp) do
     h := h + length(bmp[i]);
-  writeln(inttostr(h));
-{ Set bitmap header }
+
+  writeln('Saving file: ', filename);
+
+  { Set bitmap header }
   FillChar(header, SizeOf(header), 0);
   header[0] := $42;
   header[1] := $4D;
@@ -786,6 +797,8 @@ begin
   end;
 
   Close(outFile);
+  writeln('Save complete');
+
 end;
 
 { Factory Product creation function }
@@ -844,9 +857,7 @@ begin
   { Create thread }
   inherited Create(true);
   inBmp := inputBmp;
-  writeln(inttostr(inBmp[0,0].getBlueInt));
   setLength(BlurredBitmap, length(inBmp), length(inBmp[0]));  
-
   BlurredBitmap := inBmp;
 end;
 
@@ -894,7 +905,7 @@ begin
 end;
 
 
-{ BoxBlurThread execute procedure }
+{ BoxBlurThread execute thread procedure }
 procedure BoxBlurThread.Execute();
 var
   i, j, inH, inW: Integer;
@@ -903,7 +914,6 @@ begin
 
   inH := length(inBmp);
   inW := length(inBmp[high(inBmp)]);
-  writeln('exec ' + inttostr(BlurredBitmap[0,0].getBlueInt));
   
   { Loop through pixels in bitmap }
   for i := 0 to inH - 1 do
@@ -918,12 +928,11 @@ begin
   
 end;
 
-{ Get result function }
+{ BoxBlurThread get threads result function }
 function BoxBlurThread.GetResult(): bmpArray;
 begin
-  writeln('get ' + inttostr(BlurredBitmap[0,0].getBlueInt));
   
-  { Return blurred bitmap }
+  { Return blurred bitmap part }
   result := BlurredBitmap;
 end;
 
@@ -937,9 +946,6 @@ var
   testArray: bmpArray;
 
 begin
-  
-  { Get number of cores }
-//  NumCores := TThread.ProcessorCount;
 
   { Create Array of threads }
   SetLength(Threads, length(inBmp));
@@ -953,17 +959,14 @@ begin
     Threads[e].Start;
   end;
 
+  writeln('Box Blur started');
+
   { Wait for all threads to finish, and gather their results }
   for e := 0 to high(Threads) do
   begin
     Threads[e].WaitFor;
     writeln('Thread ', e, ' finished');
-    writeln('test ' + inttostr(Threads[e].GetResult[0,0].getRedInt));
-//    setLength(testArray, length(Threads[e]), length(Threads[e].GetResult[0]));
-{testArray := Threads[e];
-    writeln('test ' + inttostr(testArray[0,0].getRedInt));}
     BlurredBitmap[e] := Threads[e].GetResult;
-//    writeln(inttostr(BlurredBitmap[e][0][0].getRedInt));
   end;
   
   result := BlurredBitmap;
@@ -1042,41 +1045,92 @@ begin
   result[0] := outBmp;
 end;
 
+{ ScaleThread constructor }
+constructor ScaleThread.Create(inBmp: bmpArray; scale: real);
+begin
+  inherited Create(true);
+  inputBmp := inBmp;
+  inputScale := scale;
+end;
+
+{ ScaleThread execute thread procedure }
+procedure ScaleThread.Execute();
+var
+  i, j, inH, inW, outW, outH: Integer;
+  e: integer;
+
+begin
+
+  { Find bitmaps dimensions }
+  inH := length(inputBmp);
+  inW := length(inputBmp[high(inputBmp)]);
+
+  { Calculate scaled bitmaps dimensions }
+  outW := Round(inW * inputScale);
+  outH := Round(inH * inputScale);
+
+  { Allocate memory for output bitmap }
+  SetLength(scaledBitmap, outH, outW);
+
+  { Calculate new pixel positions for output bitmap }
+  for i := 0 to outH -1 do
+  begin
+    for j := 0 to outW -1 do
+    begin
+      scaledBitmap[i][j] := TPixel.Create();
+    end;
+  end;
+
+  { Test if scale is higher or lower than 1 then execute upscale or downscale functions }
+  if inputScale <= 1 then
+    scaledBitmap := DownScaleBitmap(inputBmp, inW, inH, outW, outH, inputScale)
+  else
+    scaledBitmap := UpScaleBitmap(inputBmp, inW, inH, outW, outH, inputScale);
+  
+end;
+
+{ Get result of thread }
+function ScaleThread.GetResult(): bmpArray;
+begin
+  result := scaledBitmap;
+end;
+
+
+
 { Scale a bitmap }
 function BitmapScale.use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray;
 var
   scale: real;
   inW, inH, outW, outH, e: integer;
   outBmp: arrayOfBmpArray;
+  Threads: array of ScaleThread;
 
 begin
 
-  { Assign scale to the value of input argument }
-  scale := inputVariableReal;
+  { Create Array of threads }
+  SetLength(Threads, length(inBmp));
+  SetLength(outBmp, length(inBmp));
 
-  for e := 0 to high(inBmp) do
+  { Create threads and start them }
+  for e := 0 to high(Threads) do
   begin
-
-    { Find bitmaps dimensions }
-    inH := length(inBmp[e]);
-    inW := length(inBmp[e][high(inBmp[e])]);
-
-    { Calculate scaled bitmaps dimensions }
-    outW := Round(inW * scale);
-    outH := Round(inH * scale);
-
-    { Test if scale is higher or lower than 1 then execute upscale or downscale functions }
-    if scale <= 1 then
-      outBmp[e] := DownScaleBitmap(inBmp[e], inW, inH, outW, outH, scale)
-    else
-      outBmp[e] := UpscaleBitmap(inBmp[e], inW, inH, outW, outH, scale);
+    Threads[e] := ScaleThread.Create(inBmp[e], inputVariableReal);
+    Threads[e].Start;
   end;
 
-  result := outBmp; 
+  { Wait for all threads to finish, and gather their results }  
+  for e := 0 to high(Threads) do
+  begin
+    Threads[e].WaitFor;
+    writeln('Thread ', e, ' finished');
+    outBmp[e] := Threads[e].GetResult;
+  end;
+
+  result := outBmp;
 end;
 
 { Locks a byte to an upper and lower limit. }
-function BitmapScale.clamp(x, a, b: byte): byte;
+function ScaleThread.clamp(x, a, b: byte): byte;
 begin
   if x < a then
     result := a
@@ -1087,7 +1141,7 @@ begin
 end;
 
 { Scale a pixel down }
-function BitmapScale.DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+function ScaleThread.DownScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
 var
   i, j: integer;
   dx, dy: real;
@@ -1126,7 +1180,7 @@ begin
 end;
 
 { Scale a pixel up }
-function BitmapScale.UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
+function ScaleThread.UpScalePixel(x, y, inW, inH: integer; scale: real; inBmp: bmpArray): TPixel;
 var
   dx, dy: real;
   r, g, b, i, j: integer;
@@ -1168,7 +1222,7 @@ begin
 end;
 
 { Scale bitmap down }
-function BitmapScale.DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+function ScaleThread.DownScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
 var
   i, j, x, y: integer;
   outPixel: TPixel;
@@ -1196,7 +1250,7 @@ begin
 end;
 
 { Scale bitmap up }
-function BitmapScale.UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
+function ScaleThread.UpScaleBitmap(inBmp: bmpArray; inW, inH, outW, outH: integer; scale: real): bmpArray;
 var
   r, i, j, x, y: integer;
   outPixel: TPixel;
