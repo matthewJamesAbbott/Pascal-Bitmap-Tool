@@ -225,6 +225,19 @@ type
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
   end;
 
+  { Sharpen Threaded Concrete Product }
+  SharpenThread = class(TThread)
+  private
+    inBmp: bmpArray;
+    sharpenedBitmap: bmpArray;
+    scale: real;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inputBmp: bmpArray; inputScale: real);
+    function GetResult(): bmpArray;
+  end;
+
   { Quantize Concrete Product }
   BitmapQuantize = class(BitmapTool)
     private
@@ -1288,6 +1301,49 @@ end;
 
 { Sharpen bitmap }
 function BitmapSharpen.use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray;
+var
+  i, j, k, l, e: Integer;
+  sumR, sumG, sumB, inH, inW: Integer;
+  sharpenedBitmap: arrayOfBmpArray;
+  threads: array of SharpenThread;
+
+begin
+
+  { Create Array of threads }
+  SetLength(threads, length(inBmp));
+  SetLength(sharpenedBitmap, length(inBmp));
+  sharpenedBitmap := inBmp;
+
+  { Create threads and start them }
+  for e := 0 to high(inBmp) do
+  begin
+    threads[e] := SharpenThread.Create(inBmp[e], inputVariableReal);
+    threads[e].Start;
+  end;
+
+  writeln('Sharpen started');
+
+  { Wait for threads to finish, and gather results }
+  for e := 0 to high(inBmp) do
+  begin
+    threads[e].WaitFor;
+    writeln('Sharpen thread ', e, ' finished');
+    sharpenedBitmap[e] := threads[e].GetResult;
+  end;
+
+  result := sharpenedBitmap;
+end;
+
+{ SharpenThread constructor }
+constructor SharpenThread.Create(inputBmp: bmpArray; inputScale: real);
+begin
+  inherited Create(true);
+  inBmp := inputBmp;
+  scale := inputScale;
+end;
+
+{ SharpenThread execute }
+procedure SharpenThread.Execute;
 const
 
   { Kernel for applying sharpen on bitmap }
@@ -1296,22 +1352,20 @@ const
     (-1, 5, -1),
     (0, -1, 0)
   );
+
 var
-  i, j, k, l, e: Integer;
-  sumR, sumG, sumB, inH, inW: Integer;
+  inH, inW, i, j, k, l, sumR, sumG, sumB: Integer;
 
 begin
- 
-  for e := 0 to high(inBmp) do
-  begin
 
     { Find Bitmaps dimensions }
-    inH := length(inBmp[e]);
-    inW := length(inBmp[high(inBmp[e])]);
+    inH := length(inBmp);
+    inW := length(inBmp[high(inBmp)]);
 
     { Allocate memory for out bitmap }
-    //setLength(outBmp, inH, inW);
-    //outBmp := inBmp;
+    setLength(sharpenedBitmap, inH, inW);
+    sharpenedBitmap := inBmp;
+
     { Loop through pixels in bitmap }
     for i := 1 to inH-2 do
     begin
@@ -1328,21 +1382,24 @@ begin
           begin
 
             { Apply sharpen to red green and blue colour channels in pixel }
-            sumR := sumB + inBmp[e][i+k][j+l].getBlueInt * Kernel[k][l];
-            sumG := sumG + inBmp[e][i+k][j+l].getGreenInt * Kernel[k][l];
-            sumB := sumR + inBmp[e][i+k][j+l].getRedInt * Kernel[k][l];
+            sumR := sumB + inBmp[i+k][j+l].getBlueInt * Kernel[k][l];
+            sumG := sumG + inBmp[i+k][j+l].getGreenInt * Kernel[k][l];
+            sumB := sumR + inBmp[i+k][j+l].getRedInt * Kernel[k][l];
           end;
         end;
 
         { Ensure pixel's red green and blue channels are within range }
-        inBmp[e][i][j].setBlue(EnsureRange(sumB div 1, 0, 255));
-        inBmp[e][i][j].setGreen(EnsureRange(sumG div 1, 0, 255));
-        inBmp[e][i][j].setRed(EnsureRange(SumR div 1, 0, 255));
+        sharpenedBitmap[i][j].setBlue(EnsureRange(sumB div 1, 0, 255));
+        sharpenedBitmap[i][j].setGreen(EnsureRange(sumG div 1, 0, 255));
+        sharpenedBitmap[i][j].setRed(EnsureRange(SumR div 1, 0, 255));
       end;
     end;
-  end;
+end;
 
-  result := inBmp;
+{ SharpenThread get threads result function }
+function SharpenThread.getResult: bmpArray;
+begin
+  result := sharpenedBitmap;
 end;
 
 // this function needs the colourtables matched to colour bit ratios,
