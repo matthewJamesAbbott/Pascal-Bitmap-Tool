@@ -279,12 +279,23 @@ type
 
   { Edge Detection Concrete Product }
   BitmapEdgeDetect = class(BitmapTool)
-    private
-      function detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
   end;
 
+  { Edge Detection Threaded Concrete Product }
+  EdgeDetectThread = class(TThread)
+  private
+    inputBmp: bmpArray;
+    edgeDetectedBitmap: bmpArray;
+    Threshold: TPixel;
+    function detect(inBmp: bmpArray; inputThreshold: TPixel; inH, inW: integer): bmpArray;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inBmp: bmpArray; inputThreshold: TPixel);
+    function GetResult(): bmpArray;
+  end;
 
   { Factory for creating Bitmap Tool Products }
   BitmapFactory = class
@@ -1673,11 +1684,40 @@ begin
   for e := 0 to high(threads) do
   begin
     threads[e].WaitFor;
+    writeln('Thread ', e, ' finished');
     outBmp[e] := threads[e].getResult;
     threads[e].Free;
   end;
 
   result := outBmp;
+end;
+
+{ Detect edges threaded constructor }
+constructor EdgeDetectThread.Create(inBmp: bmpArray; inputThreshold: TPixel);
+begin
+  inputBmp := inBmp;
+  Threshold := inputThreshold;
+  inherited Create(true);
+end;
+
+{ Detect edges threaded execute }
+procedure EdgeDetectThread.Execute;
+var
+  inH, inW: integer;
+begin
+
+  { Find image dimensions }
+  inH := length(inputBmp); 
+  inW := length(inputBmp[high(inputBmp)]);
+
+  { Calculate edge detection }
+  edgeDetectedBitmap := detect(inputBmp, Threshold, inH, inW);
+end;
+
+{ Detect edges threaded getResult }
+function EdgeDetectThread.getResult: bmpArray;
+begin
+  result := edgeDetectedBitmap;
 end;
 
 { Detect edges in bitmap based on colour gradient difference using a threshold }
@@ -1686,7 +1726,8 @@ var
   Threshold: TPixel;
   inH, inW, e: integer;
   Bmp: bmpArray;
-  outBmp: arrayOfBmpArray; 
+  outBmp: arrayOfBmpArray;
+  threads: array of EdgeDetectThread;
 
 begin
 
@@ -1696,25 +1737,33 @@ begin
   Threshold.setGreen(inputVariableInt);
   Threshold.setRed(inputVariableInt);
 
-  for e := 0 to high(inBmp) do
+  { Create Array of threads }
+  setLength(threads, length(inBmp));
+  setLength(outBmp, length(inBmp));
+
+  { Create threads and start them }
+  for e := 0 to high(threads) do
   begin
- 
-  { Find image dimensions }
-  inH := length(inBmp[e]);
-  inW := length(inBmp[e][high(inBmp[e])]);
-
-  { Calculate edge detection }
-  Bmp := detect(inBmp[e], Threshold, inH, inW);
-  Threshold.Free;
-
-  outBmp[e] := bmp;
+    threads[e] := EdgeDetectThread.Create(inBmp[e], Threshold);
+    threads[e].Start;
   end;
+
+  { Wait for threads to finish, and gather their results }
+  for e := 0 to high(threads) do
+  begin
+    threads[e].WaitFor;
+    writeln('Thread ', e, ' finished');
+    outBmp[e] := threads[e].getResult;
+    threads[e].Free;
+  end;
+  
+  Threshold.Free;
 
   result := outBmp
 end;
 
 { Calculate Edge Detection }
-function BitmapEdgeDetect.detect(inBmp: bmpArray; Threshold: TPixel; inH, inW: integer): bmpArray;
+function EdgeDetectThread.detect(inBmp: bmpArray; inputThreshold: TPixel; inH, inW: integer): bmpArray;
 var
   X, Y: Integer;
   GX, GY: TPixel; // Gradients in X and Y directions
@@ -1758,15 +1807,15 @@ begin
 
       //outBmp[y][x] := TPixel.Create();
       { Threshold gradient and set output pixel }
-      if Gradient.getRedInt > Threshold.getRedInt then
+      if Gradient.getRedInt > inputThreshold.getRedInt then
         outBmp[y,x].setRed(255)
       else
         outBmp[y,x].setRed(0);
-      if Gradient.getGreenInt > Threshold.getGreenInt then
+      if Gradient.getGreenInt > inputThreshold.getGreenInt then
         outBmp[y,x].setGreen(255)
       else
         outBmp[y,x].setGreen(0);
-      if Gradient.getBlueInt > Threshold.getBlueInt then
+      if Gradient.getBlueInt > inputThreshold.getBlueInt then
         outBmp[y,x].setBlue(255)
       else
         outBmp[y,x].setBlue(0);
