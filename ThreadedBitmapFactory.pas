@@ -265,6 +265,18 @@ type
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
   end;
 
+  { Dither Threaded Concrete Product }
+  DitherThread = class(TThread)
+  private
+    inBmp: bmpArray;
+    ditheredBitmap: bmpArray;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inputBmp: bmpArray);
+    function GetResult(): bmpArray;
+  end;
+
   { Edge Detection Concrete Product }
   BitmapEdgeDetect = class(BitmapTool)
     private
@@ -992,6 +1004,7 @@ begin
     Threads[e].WaitFor;
     writeln('Thread ', e, ' finished');
     BlurredBitmap[e] := Threads[e].GetResult;
+    Threads[e].Free;
   end;
   
   result := BlurredBitmap;
@@ -1149,6 +1162,7 @@ begin
     Threads[e].WaitFor;
     writeln('Thread ', e, ' finished');
     outBmp[e] := Threads[e].GetResult;
+    Threads[e].Free;
   end;
 
   result := outBmp;
@@ -1341,6 +1355,7 @@ begin
     threads[e].WaitFor;
     writeln('Sharpen thread ', e, ' finished');
     sharpenedBitmap[e] := threads[e].GetResult;
+    threads[e].Free;
   end;
 
   result := sharpenedBitmap;
@@ -1444,6 +1459,7 @@ begin
     threads[e].WaitFor;
     writeln('Thread ', e, ' finished');
     outBmp[e] := threads[e].getResult;
+    threads[e].Free;
   end;
 
   result := outBmp;
@@ -1538,6 +1554,93 @@ begin
   result := quantizedBitmap;
 end;
 
+{ DitherThread constructor }
+constructor DitherThread.Create(inputBmp: bmpArray);
+begin
+  inherited Create(true);
+  inBmp := inputBmp;
+end;
+
+{ DitherThread execute }
+procedure DitherThread.Execute;
+var
+  x, y, inW, inH: integer;
+  OldPixel, NewPixel, Error: TPixel;
+
+begin
+
+  { Find Bitmaps dimensions }
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+
+  { Allocate memory for out bitmap }
+  setLength(ditheredBitmap, inH, inW);
+
+  NewPixel := TPixel.Create();
+  Error := TPixel.Create();
+  { Loop over pixels in bitmap }
+  for y := 0 to inH - 1 do
+  begin
+    for x := 0 to inW - 1 do
+    begin
+
+      { Set old pixel to equal current iteration of bitmap }
+      OldPixel := inBmp[y][x];
+
+      { Set new pixel }
+      NewPixel.setBlue(Round((OldPixel.getBlueInt / 256) * 256));
+      NewPixel.setGreen(Round((OldPixel.getGreenInt / 256) * 256));
+      NewPixel.setRed(Round((OldPixel.getRedInt / 256) * 256));
+
+      { Set error }
+      Error.setBlue(OldPixel.getBlueInt - NewPixel.getBlueInt);
+      Error.setGreen(OldPixel.getGreenInt - NewPixel.getGreenInt);
+      Error.setRed(OldPixel.getRedInt - NewPixel.getRedInt);
+
+      { Write new pixel to bitmap }
+      ditheredBitmap[y][x] := TPixel.Create();
+      ditheredBitmap[y][x].setBlue(NewPixel.getBlueInt);
+      ditheredBitmap[y][x].setGreen(NewPixel.getGreenInt);
+      ditheredBitmap[y][x].setRed(NewPixel.getRedInt);
+
+      { Distribute error }
+      if x < inW - 1 then
+      begin
+          inBmp[y, x + 1].setBlue(inBmp[y, x + 1].getBlueInt + Error.getBlueInt * 7 div 16);
+          inBmp[y, x + 1].setGreen(inBmp[y, x + 1].getGreenInt + Error.getGreenInt * 7 div 16);
+          inBmp[y, x + 1].setRed(inBmp[y, x + 1].getRedInt + Error.getRedInt * 7 div 16);
+      end;
+      if (x > 0) and (y < inH - 1) then
+      begin
+        inBmp[y + 1, x - 1].setBlue(inBmp[y + 1, x - 1].getBlueInt + Error.getBlueInt * 3 div 16);
+        inBmp[y + 1, x - 1].setGreen(inBmp[y + 1, x - 1].getGreenInt + Error.getGreenInt * 3 div 16);
+        inBmp[y + 1, x - 1].setRed(inBmp[y + 1, x - 1].getRedInt + Error.getRedInt * 3 div 16);
+      end;
+      if y < inH - 1 then
+      begin
+        inBmp[y + 1, x].setBlue(inBmp[y + 1, x].getBlueInt + Error.getBlueInt * 5 div 16);
+        inBmp[y + 1, x].setGreen(inBmp[y + 1, x].getGreenInt + Error.getGreenInt * 5 div 16);
+        inBmp[y + 1, x].setRed(inBmp[y + 1, x].getRedInt + Error.getRedInt * 5 div 16);
+      end;
+      if (x < inW - 1) and (y < inH - 1) then
+      begin
+        inBmp[y + 1, x + 1].setBlue(inBmp[y + 1, x + 1].getBlueInt + Error.getBlueInt div 16);
+        inBmp[y + 1, x + 1].setGreen(inBmp[y + 1, x + 1].getGreenInt + Error.getGreenInt div 16);
+        inBmp[y + 1, x + 1].setRed(inBmp[y + 1, x + 1].getRedInt + Error.getRedInt div 16);
+      end;
+    end;
+  end;
+  OldPixel.Free;
+  NewPixel.Free;
+  Error.Free;
+end;
+
+{ DitherThread getResult }
+function DitherThread.getResult: bmpArray;
+begin
+  result := ditheredBitmap;
+end;
+
 
 // I think the ability to round to a decimal place might make this more useful.
 { Dither bitmap }
@@ -1549,77 +1652,31 @@ var
   bmp: bmpArray;
   outBmp: arrayOfBmpArray;
   x, y, e, inH, inW: integer;
+  threads: array of DitherThread;
+
 begin
 
-  for e := 0 to high(inBmp) do
-  begin
-
-    { Find bitmap dimensions }
-    inH := length(inBmp[e]);
-    inW := length(inBmp[e][high(inBmp[e])]);
-
-    { Allocate memory to output bitmap }
-    setLength(Bmp, inH, inW);
-
-    NewPixel := TPixel.Create();
-    Error := TPixel.Create();
-    { Loop over pixels in bitmap }
-    for y := 0 to inH - 1 do
-    begin
-      for x := 0 to inW - 1 do
-      begin
-
-        { Set old pixel to equal current iteration of bitmap }
-        OldPixel := inBmp[e][y][x];
-
-        { Set new pixel }
-        NewPixel.setBlue(Round((OldPixel.getBlueInt / 256) * 256));
-        NewPixel.setGreen(Round((OldPixel.getGreenInt / 256) * 256));
-        NewPixel.setRed(Round((OldPixel.getRedInt / 256) * 256));
-
-        { Calculate error between old and new pixel }
-        Error.setBlue(OldPixel.getBlueInt - NewPixel.getBlueInt);
-        Error.setGreen(OldPixel.getGreenInt - NewPixel.getGreenInt);
-        Error.setRed(OldPixel.getRedInt - NewPixel.getRedInt);
-
-        { Write new pixel to output bitmap }
-        Bmp[y][x] := TPixel.Create();
-        Bmp[y][x].setBlue(NewPixel.getBlueByte);
-        Bmp[y][x].setGreen(NewPixel.getGreenByte);
-        Bmp[y][x].setRed(NewPixel.getGreenByte);
-
-        { Calculate dither from error generated }
-        if x < inW - 1 then
-        begin
-          inBmp[e][y, x + 1].setBlue(inBmp[e][y, x + 1].getBlueInt + Error.getBlueInt * 7 div 16);
-          inBmp[e][y, x + 1].setGreen(inBmp[e][y, x + 1].getGreenInt + Error.getGreenInt * 7 div 16);
-          inBmp[e][y, x + 1].setRed(inBmp[e][y, x + 1].getRedInt + Error.getRedInt * 7 div 16);
-        end;
-        if (x > 0) and (y < inH - 1) then
-        begin
-          inBmp[e][y + 1, x - 1].setBlue(inBmp[e][y + 1, x - 1].getBlueInt + Error.getBlueInt * 3 div 16);
-          inBmp[e][y + 1, x - 1].setGreen(inBmp[e][y + 1, x - 1].getGreenInt + Error.getGreenInt * 3 div 16);
-          inBmp[e][y + 1, x - 1].setRed(inBmp[e][y + 1, x - 1].getRedInt + Error.getRedInt * 3 div 16);
-        end;
-        if y < inH - 1 then
-        begin
-          inBmp[e][y + 1, x].setBlue(inBmp[e][y + 1, x].getBlueInt + Error.getBlueInt * 5 div 16);
-          inBmp[e][y + 1, x].setGreen(inBmp[e][y + 1, x].getGreenInt + Error.getGreenInt * 5 div 16);
-          inBmp[e][y + 1, x].setRed(inBmp[e][y + 1, x].getRedInt + Error.getRedInt * 5 div 16);
-        end;
-        if (x < inW - 1) and (y < inH - 1) then
-        begin
-          inBmp[e][y + 1, x + 1].setBlue(inBmp[e][y + 1, x + 1].getBlueInt + Error.getBlueInt div 16);
-          inBmp[e][y + 1, x + 1].setGreen(inBmp[e][y + 1, x + 1].getGreenInt + Error.getGreenInt div 16);
-          inBmp[e][y + 1, x + 1].setRed(inBmp[e][y + 1, x + 1].getRedInt + Error.getRedInt div 16);
-        end;
-      end;
-    end;
-    outBmp[e] := bmp;
-  NewPixel.Free;
-  Error.Free;
-  end;
+  { Create Array of threads }
+  setLength(threads, length(inBmp));
   
+  { Find Bitmaps dimensions }
+  setLength(outBmp, length(inBmp));
+
+  { Create threads and start them }
+  for e := 0 to high(threads) do
+  begin
+    threads[e] := DitherThread.Create(inBmp[e]);
+    threads[e].Start;
+  end;
+
+  { Wait for threads to finish, and gather their results }
+  for e := 0 to high(threads) do
+  begin
+    threads[e].WaitFor;
+    outBmp[e] := threads[e].getResult;
+    threads[e].Free;
+  end;
+
   result := outBmp;
 end;
 
