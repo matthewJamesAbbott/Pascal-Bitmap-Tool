@@ -58,6 +58,7 @@ type
   private
     refArray: array of ^bmpArray;
     refArraySizes: array of integer;
+    referencedBitmap: arrayOfBmpArray;
   public
     constructor Create(inputArrays: arrayOfBmpArray);
     function getBlueByte(x, y: integer): byte;
@@ -193,6 +194,20 @@ type
   BitmapRotate = class(BitmapTool)
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
+  end;
+
+  { Rotate Threaded Concrete Product }
+  RotateThread = class(TThread)
+  private
+    facade: BmpArrayFacade; 
+    outBmp: PArray;
+    startHeight, stopHeight, h2, w2: integer;
+    sinA, cosA, cx, cy: real;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inputBmp: BmpArrayFacade; inputOutBmp: PArray; inputCx, inputCy, inputSinA, inputCosA: real; inputStart, inputStop, inputH2, inputW2: integer);
+    function GetResult(): PArray;
   end;
 
   { Scale Concrete Product }
@@ -443,16 +458,54 @@ var
   i: integer;
 
 begin
-  setLength(refArray, length(inputArrays));
-  setLength(refArraySizes, length(inputArrays));
+  referencedBitmap := inputArrays;
+  setLength(refArray, length(referencedBitmap));
+  setLength(refArraySizes, length(referencedBitmap));
 
-  for i := 0 to high(inputArrays) do
+  for i := 0 to high(referencedBitmap) do
   begin
-    refArray := @inputArrays[i];
-    refArraySizes[i] := length(inputArrays[i]);
+    refArray[i] := @referencedBitmap[high(referencedBitmap) - i];
+    refArraySizes[i] := length(referencedBitmap[i]);
   end;
 end;
 
+function BmpArrayFacade.getBlueByte(x, y: integer): byte;
+var
+  arrayIndex, elementIndex, i, size: integer;
+begin
+  arrayIndex := 0;
+  elementIndex := y;
+  
+  for i := 0 to high(refArraySizes) do
+  begin
+    size := refArraySizes[i];
+    if (elementIndex < size) then
+      break;
+    elementIndex := elementIndex - size;
+    if (arrayIndex < high(refArray)) then
+    begin
+      inc(arrayIndex);
+    end;
+ end;
+
+  if (arrayIndex < 0) or (arrayIndex >= Length(refArray)) then
+  begin
+    writeln('Error: arrayIndex out of bounds');
+    writeln('arrayIndex: ', arrayIndex);
+    exit;
+  end;
+  if (elementIndex < 0) or (elementIndex >= Length(refArray[arrayIndex]^)) then
+  begin
+    writeln('Error: elementIndex out of bounds');
+    writeln('elementIndex: ', elementIndex);
+    writeln('arrayIndex: ', arrayIndex);
+
+    exit;
+  end;
+  
+  result := refArray[arrayIndex]^[elementIndex][x].getBlueByte;
+end;
+{
 function BmpArrayFacade.getBlueByte(x, y: integer): byte;
 var
   arrayIndex, elementIndex, i, size: integer;
@@ -472,9 +525,9 @@ begin
     inc(arrayIndex);
   end;
 
-  result := refArray[arrayIndex]^[elementIndex div size][x].getBlueByte;
+  result := refArray[arrayIndex]^[elementIndex][x].getBlueByte;
 end;
-
+}
 function BmpArrayFacade.getGreenByte(x, y: integer): byte;
 var
   arrayIndex, elementIndex, i, size: integer;
@@ -489,12 +542,14 @@ begin
     size := refArraySizes[i];
     if (elementIndex < size) then
       break;
-
     elementIndex := elementIndex - size;
-    inc(arrayIndex);
+    if (arrayIndex < high(refArray)) then
+    begin
+      inc(arrayIndex);
+    end;
   end;
 
-  result := refArray[arrayIndex]^[elementIndex div size][x].getGreenByte;
+  result := refArray[arrayIndex]^[elementIndex][x].getGreenByte;
 end;
 
 function BmpArrayFacade.getRedByte(x, y: integer): byte;
@@ -511,12 +566,14 @@ begin
     size := refArraySizes[i];
     if (elementIndex < size) then
       break;
-
     elementIndex := elementIndex - size;
-    inc(arrayIndex);
+    if (arrayIndex < high(refArray)) then
+    begin
+      inc(arrayIndex);
+    end;
   end;
 
- result := refArray[arrayIndex]^[elementIndex div size][x].getRedByte;
+ result := refArray[arrayIndex]^[elementIndex][x].getRedByte;
 end;
 
 function BmpArrayFacade.getBlueInt(x, y: integer): integer;
@@ -538,7 +595,7 @@ begin
     inc(arrayIndex);
   end;
 
-  result := refArray[arrayIndex]^[elementIndex div size][x].getBlueInt;
+  result := refArray[arrayIndex]^[elementIndex][x].getBlueInt;
 end;
 
 function BmpArrayFacade.getGreenInt(x, y: integer): integer;
@@ -560,7 +617,7 @@ begin
     inc(arrayIndex);
   end;
 
-  result := refArray[arrayIndex]^[elementIndex div size][x].getGreenInt;
+  result := refArray[arrayIndex]^[elementIndex][x].getGreenInt;
 end;
 
 function BmpArrayFacade.getRedInt(x, y: integer): integer;
@@ -582,7 +639,7 @@ begin
     inc(arrayIndex);
   end;
 
- result := refArray[arrayIndex]^[elementIndex div size][x].getRedInt;
+ result := refArray[arrayIndex]^[elementIndex][x].getRedInt;
 end;
 
 procedure BmpArrayFacade.setBlue(x, y: integer; inByte: byte);
@@ -603,7 +660,7 @@ begin
     inc(arrayIndex);
   end;
 
-  refArray[arrayIndex]^[elementIndex div size][x].setBlue(inByte);
+  refArray[arrayIndex]^[elementIndex][x].setBlue(inByte);
 end;
 
 procedure BmpArrayFacade.setGreen(x, y: integer; inByte: byte);
@@ -624,7 +681,7 @@ begin
     inc(arrayIndex);
   end;
 
-  refArray[arrayIndex]^[elementIndex div size][x].setGreen(inByte);
+  refArray[arrayIndex]^[elementIndex][x].setGreen(inByte);
 end;
 
 
@@ -647,7 +704,7 @@ begin
     inc(arrayIndex);
   end;
 
-  refArray[arrayIndex]^[elementIndex div size][x].setRed(inByte);
+  refArray[arrayIndex]^[elementIndex][x].setRed(inByte);
 end;
 
 function BmpArrayFacade.getInH(): integer;
@@ -723,6 +780,9 @@ begin
   { Get bitmap dimensions }
   w := PInteger(@header[18])^;
   h := PInteger(@header[22])^;
+
+  writeln('Width: ', w);
+  writeln('Height: ', h);
 
   { Get pixel size and row size }
   pixelSize := PWord(@header[28])^ div 8;
@@ -1026,13 +1086,17 @@ end;
 { Rotate a bitmap }
 function BitmapRotate.use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray;
 var
-x, y, i, j, xx, yy, inH, inW: integer;
+x, y, i, j, xx, yy, inH, inW, NumCores, segmentHeight: integer;
 cx, cy, sina, cosa, angle: real;
 e, h, w2, h2, outW, outH: integer;
-outBmp: bmpArray;
+outBmp, flippedBmp: bmpArray;
 facade: BmpArrayFacade;
+return: arrayOfBmpArray;
+Threads: array of RotateThread;
+
 begin
-  
+
+  NumCores := 4;//TThread.ProcessorCount;
   facade := BmpArrayFacade.Create(inBmp);
   
   { Assign angle to input argument }
@@ -1040,13 +1104,7 @@ begin
   inH := facade.getInH;
   inW := facade.getInW;
 
-  for i := 0 to high(inBmp) do
-  begin
-    inH := inH + length(inBmp[i]);
-  end;
-
   { Find dimensions of bitmap }
-  inW := length(inBmp[0][high(inBmp[0])]);
   cx := inW /2;
   cy := inH / 2;
 
@@ -1057,12 +1115,14 @@ begin
   h2 := Round(inW * Abs(sina) + inH * Abs(cosa));
   outW := w2;
   outH := h2;
-  for e := 0 to inH - 1 do
-  begin
+  writeln('inW: ', inW, ' inH: ', inH);
+  writeln('outW: ', outW, ' outH: ', outH);
 
-    { Allocate memory for output bitmap }
-    SetLength(outBmp, outH, outW);
-  end;
+  { Allocate memory for output bitmap }
+  SetLength(outBmp, outH, outW);
+
+  { Create Array of threads }
+  SetLength(Threads, NumCores);
 
   { Calculate new pixel positions for output bitmap }
   for i := 0 to outH -1 do
@@ -1073,27 +1133,97 @@ begin
     end;
   end;
 
+  segmentHeight := Round(outH / NumCores);
+
+  { Create threads and start them }
+  for e := 0 to NumCores -1 do
+  begin
+    Threads[e] := RotateThread.Create(facade, @outBmp, cx, cy, sina, cosa, e * segmentHeight, (e + 1) * segmentHeight, h2, w2);
+    writeln('Thread ', e, ' started');
+    writeln('Start: ', e * segmentHeight, ' Stop: ', (e + 1) * segmentHeight);
+    writeln('cx: ', cx, ' cy: ', cy, ' sina: ', sina, ' cosa: ', cosa);
+    writeln('h2: ', h2, ' w2: ', w2);
+    writeln('inH: ', inH, ' inW: ', inW);
+    writeln('outH: ', outH, ' outW: ', outW);
+    writeln('NumCores: ', NumCores);
+    writeln('segmentHeight: ', segmentHeight);
+    writeln('---------------------------------');
+    Threads[e].Start;
+  end;
+
+  { Wait for all threads to finish, and gather their results }
+  for e := 0 to NumCores -1 do
+  begin
+    Threads[e].WaitFor;
+    writeln('Thread ', e, ' finished');
+    Threads[e].Free;
+  end;
+
+  { Return rotated bitmap }
+  setLength(return, 1);
+  setLength(flippedBmp, outH, outW);
   for i := 0 to outH -1 do
   begin
     for j := 0 to outW -1 do
     begin
+      flippedBmp[outH - i - 1][j] := outBmp[i][j];
+    end;
+  end;
+  return[0] := flippedBmp;
+  result := return;
+end;
 
+{ RotateThread constructor }
+constructor RotateThread.Create(inputBmp: BmpArrayFacade; inputOutBmp: PArray; inputCx, inputCy, inputSina, inputCosa: real; inputStart, inputStop, inputH2, inputW2: integer);
+begin
+  inherited Create(true);
+  facade := inputBmp;
+  outBmp := inputOutBmp;
+  cx := inputCx;
+  cy := inputCy;
+  sina := inputSina;
+  cosa := inputCosa;
+  startHeight := inputStart;
+  stopHeight := inputStop;
+  h2 := inputH2;
+  w2 := inputW2;
+end;
+
+{ RotateThread execute thread procedure }
+procedure RotateThread.Execute();
+var
+  i, j, inH, inW: Integer;
+  x, y, xx, yy: integer;
+
+begin
+
+      inH := facade.getInH;
+      inW := facade.getInW;
+  for i := startHeight to stopHeight -1 do
+  begin
+    for j := 0 to w2 -1 do
+    begin
       x := j - w2 div 2;
       y := h2 div 2 - i;
       xx := Round(cosa * x + sina * y + cx);
       yy := Round(-sina * x + cosa * y + cy);
       if (xx >= 0) and (xx < inW) and (yy >= 0) and (yy < inH) then
       begin
-        outBmp[i][j].setBlue(facade.getBlueByte(xx, yy));
-        outBmp[i][j].setGreen(facade.getGreenByte(xx, yy));
-        outBmp[i][j].setRed(facade.getRedByte(xx, yy));
+        outBmp^[i][j].setBlue(facade.getBlueByte(xx, yy));
+        outBmp^[i][j].setGreen(facade.getGreenByte(xx, yy));
+        outBmp^[i][j].setRed(facade.getRedByte(xx, yy));
       end;
     end;
   end;
-
-  result[0] := outBmp;
 end;
 
+{ RotateThread get result }
+function RotateThread.GetResult(): PArray;
+begin
+  result := outBmp;
+end;
+
+{ RotateThread destructor }
 { ScaleThread constructor }
 constructor ScaleThread.Create(inBmp: bmpArray; scale: real);
 begin
