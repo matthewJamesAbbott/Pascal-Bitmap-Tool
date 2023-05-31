@@ -240,11 +240,23 @@ type
 
   { Quantize Concrete Product }
   BitmapQuantize = class(BitmapTool)
-    private
-      function Distance(Colour1, Colour2: TPixel): integer;
-      function FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; NumColours: integer): TPixel;
     public
       function use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray; override;
+  end;
+
+  { Quantize Threaded Concrete Product }
+  QuantizeThread = class(TThread)
+  private
+    inBmp: bmpArray;
+    quantizedBitmap: bmpArray;
+    numColours: integer;
+    function Distance(Colour1, Colour2: TPixel): integer;
+    function FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; inNumColours: integer): TPixel;
+  protected
+    procedure Execute(); override;
+  public
+    constructor Create(inputBmp: bmpArray; inputNumColours: integer);
+    function GetResult(): bmpArray;
   end;
 
   { Dither Concrete Product }
@@ -1396,12 +1408,10 @@ begin
     end;
 end;
 
-{ SharpenThread get threads result function }
 function SharpenThread.getResult: bmpArray;
 begin
   result := sharpenedBitmap;
 end;
-
 // this function needs the colourtables matched to colour bit ratios,
 { Quantize a bitmap to a set number of colours }
 function BitmapQuantize.use(inputVariableInt: integer; inputVariableReal: real; inBmp: arrayOfBmpArray): arrayOfBmpArray;
@@ -1412,58 +1422,50 @@ var
   NearestColour: TPixel;
   bmp: bmpArray;
   outBmp: arrayOfBmpArray;
+  threads: array of QuantizeThread;
+
 
 begin
 
-  { Assign NumColours to the value of input argument }
-  NumColours := inputVariableInt;
+  { Create Array of threads }
+  setLength(threads, length(inBmp));
+  setLength(outBmp, length(inBmp));
 
-  { Set ColourTable }
-  for i := 1 to NumColours do
-  begin
-    ColourTable[i-1] := TPixel.Create();
-    ColourTable[i-1].setBlue(trunc(256 / i)); // random(256));
-    ColourTable[i-1].setGreen(trunc(256 / (NumColours - i + 1))); // random(256));
-    ColourTable[i-1].setRed(trunc(256 / i)); // random(256));
-  end;
-
+  { Create threads and start them }
   for e := 0 to high(inBmp) do
   begin
+    threads[e] := QuantizeThread.Create(inBmp[e], inputVariableInt);
+    threads[e].Start;
+  end;
 
-    { Find dimensions of bitmap }
-    inH := length(inBmp[e]);
-    inW := length(inBmp[e][high(inBmp[e])]);
-
-    { Allocate Memory for output bitmap }
-    setLength(Bmp, inH, inW);
-
-    { Loop through pixels in bitmap }
-    for i := 0 to inH -1 do
-    begin
-      for j := 0 to inW -1 do
-      begin
-
-        { Find nearest colour in colour table to pixel then write to output bitmap }
-        NearestColour := FindNearestColour(inBmp[e][i][j], ColourTable, NumColours);
-        bmp[i][j] := NearestColour;
-      end;
-    end;
-
-    outBmp[e] := bmp;
+  { Wait for threads to finish, and gather their results }
+  for e := 0 to high(inBmp) do
+  begin
+    threads[e].WaitFor;
+    writeln('Thread ', e, ' finished');
+    outBmp[e] := threads[e].getResult;
   end;
 
   result := outBmp;
 end;
 
 
-{ Calculate distance between two pixels }
-function BitmapQuantize.Distance(Colour1, Colour2: TPixel): integer;
+{ QuantizeThread constructor }
+constructor QuantizeThread.Create(inputBmp: bmpArray; inputNumColours: integer);
 begin
-  Distance := Sqr(Colour1.getRedInt - Colour2.getRedInt) + Sqr(Colour1.getGreenInt - Colour2.getGreenInt) + Sqr(Colour1.getBlueInt - Colour2.getBlueInt);
+  inherited Create(true);
+  inBmp := inputBmp;
+  NumColours := inputNumColours;
+end;
+
+{ Calculate distance between two pixels }
+function QuantizeThread.Distance(Colour1, Colour2: TPixel): integer;
+begin
+  result := Sqr(Colour1.getRedInt - Colour2.getRedInt) + Sqr(Colour1.getGreenInt - Colour2.getGreenInt) + Sqr(Colour1.getBlueInt - Colour2.getBlueInt);
 end;
 
 { Find the nearest colour to a pixel from a colour table }
-function BitmapQuantize.FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; NumColours: integer): TPixel;
+function QuantizeThread.FindNearestColour(TargetColour: TPixel; ColourTable: TColourTable; inNumColours: integer): TPixel;
 var
   i, BestIndex, BestDistance: integer;
   DistanceToTarget: integer;
@@ -1474,7 +1476,7 @@ begin
   BestDistance := Distance(TargetColour, ColourTable[0]);
 
   { Calculate the distance between pixel and the rest of colour table }
-  for i := 1 to NumColours - 1 do
+  for i := 1 to inNumColours - 1 do
   begin
     DistanceToTarget := Distance(TargetColour, ColourTable[i]);
     if DistanceToTarget < BestDistance then
@@ -1487,6 +1489,55 @@ begin
   { Return the closest colour in colour table to pixel }
   result := ColourTable[BestIndex];
 end;
+
+
+{ QuantizeThread execute }
+procedure QuantizeThread.Execute;
+var
+  i, j, e, inW, inH: integer;
+  ColourTable: TColourTable;
+  NearestColour: TPixel;
+  bmp: bmpArray;
+
+begin
+
+  { Set ColourTable }
+  for i := 1 to NumColours do
+  begin
+    ColourTable[i-1] := TPixel.Create();
+    ColourTable[i-1].setBlue(trunc(256 / i)); // random(256));
+    ColourTable[i-1].setGreen(trunc(256 / (NumColours - i + 1))); // random(256));
+    ColourTable[i-1].setRed(trunc(256 / (NumColours - i + 1))); // random(256));
+  end;
+
+  { Find Bitmaps dimensions }
+  inH := length(inBmp);
+  inW := length(inBmp[high(inBmp)]);
+
+  { Allocate memory for out bitmap }
+  setLength(quantizedBitmap, inH, inW);
+
+  { Loop through pixels in bitmap }
+  for i := 0 to inH-1 do
+  begin
+    for j := 0 to inW-1 do
+    begin
+
+      { Find nearest colour }
+      NearestColour := FindNearestColour(inBmp[i][j], ColourTable, NumColours);
+
+      { Set pixel to nearest colour }
+      quantizedBitmap[i][j] := NearestColour;
+    end;
+  end;
+end;
+
+{ QuantizeThread getResult }
+function QuantizeThread.getResult: bmpArray;
+begin
+  result := quantizedBitmap;
+end;
+
 
 // I think the ability to round to a decimal place might make this more useful.
 { Dither bitmap }
