@@ -32,4 +32,4 @@ Repository Contents
     ThreadedBitmapFactory.pas: The final version of the program that combines all of the enhancements, 
     including OOP, design patterns, error handling, and multithreading.
 
-The repository also includes executable files and other support files necessary to run the application.
+
